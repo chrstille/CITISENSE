@@ -1,0 +1,507 @@
+/* =========================================================
+   CITISENSE USERS PAGE
+========================================================= */
+
+
+/* =========================================================
+   PAGE HEADER
+========================================================= */
+
+.users-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    width: 100%;
+
+    margin-bottom: 28px;
+}
+
+.users-page-header h1 {
+    margin: 0 0 7px;
+
+    color: #17245f;
+
+    font-size: 34px;
+    font-weight: 700;
+}
+
+.users-page-header p {
+    margin: 0;
+
+    color: #7180a7;
+
+    font-size: 14px;
+}
+
+.main-content {
+    padding: 32px 42px 24px;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   USERS CARD
+========================================================= */
+
+.users-card {
+    width: 100%;
+
+    background: #ffffff;
+
+    border: 1px solid #e8edf6;
+    border-radius: 14px;
+
+    box-shadow: 0 3px 15px rgba(40, 65, 120, 0.04);
+
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
+
+.users-toolbar {
+    width: 100%;
+
+    padding: 16px 18px;
+
+    border-bottom: 1px solid #edf0f6;
+
+    background: #ffffff;
+}
+
+.search-form {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    width: 100%;
+}
+
+.search-box {
+    position: relative;
+
+    width: 325px;
+    height: 42px;
+}
+
+.search-box input {
+    width: 100%;
+    height: 100%;
+
+    box-sizing: border-box;
+
+    padding: 0 40px;
+
+    border: 1px solid #e0e6f0;
+    border-radius: 8px;
+
+    outline: none;
+
+    background: #ffffff;
+
+    color: #26356d;
+
+    font-family: inherit;
+    font-size: 13px;
+}
+
+.search-box input::placeholder {
+    color: #9ba5bf;
+}
+
+.search-box input:focus {
+    border-color: #2768e8;
+
+    box-shadow: 0 0 0 3px rgba(39, 104, 232, 0.08);
+}
+
+.search-icon {
+    position: absolute;
+
+    left: 14px;
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    color: #8792b1;
+
+    font-size: 14px;
+}
+
+.clear-search {
+    position: absolute;
+
+    right: 13px;
+    top: 50%;
+
+    transform: translateY(-50%);
+
+    color: #9ba5bf;
+
+    font-size: 20px;
+
+    line-height: 1;
+
+    text-decoration: none;
+}
+
+.clear-search:hover {
+    color: #2768e8;
+}
+
+.search-button {
+    height: 42px;
+
+    padding: 0 20px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #2768e8;
+
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+}
+
+.search-button:hover {
+    background: #1858d0;
+}
+
+
+/* =========================================================
+   TABLE
+========================================================= */
+
+.table-wrapper {
+    width: 100%;
+
+    overflow-x: auto;
+}
+
+.users-table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    table-layout: auto;
+}
+
+.users-table th {
+    height: 52px;
+
+    padding: 0 24px;
+
+    border-bottom: 1px solid #e9edf5;
+
+    color: #1c2d68;
+
+    background: #ffffff;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    text-align: left;
+
+    white-space: nowrap;
+}
+
+.users-table td {
+    height: 67px;
+
+    padding: 10px 24px;
+
+    border-bottom: 1px solid #edf0f6;
+
+    color: #344274;
+
+    font-size: 12px;
+
+    vertical-align: middle;
+
+    white-space: nowrap;
+}
+
+.users-table tbody tr:hover {
+    background: #fafbfe;
+}
+
+.users-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+
+/* =========================================================
+   USER ID
+========================================================= */
+
+.user-id {
+    color: #2768e8 !important;
+
+    font-weight: 600;
+}
+
+
+/* =========================================================
+   EMAIL
+========================================================= */
+
+.email-cell {
+    color: #52628c !important;
+}
+
+
+/* =========================================================
+   PROFILE
+========================================================= */
+
+.profile-image,
+.profile-placeholder {
+    width: 40px;
+    height: 40px;
+
+    border-radius: 50%;
+
+    object-fit: cover;
+}
+
+.profile-placeholder {
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    background: #eaf1ff;
+
+    color: #2768e8;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   EMPTY STATE
+========================================================= */
+
+.no-users {
+    height: 260px !important;
+
+    padding: 30px !important;
+
+    text-align: center !important;
+}
+
+.empty-state {
+    height: 220px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+}
+
+.empty-icon {
+    width: 55px;
+    height: 55px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    margin-bottom: 12px;
+
+    border-radius: 50%;
+
+    background: #f1f5ff;
+
+    color: #2768e8;
+
+    font-size: 24px;
+}
+
+.empty-state h3 {
+    margin: 0 0 7px;
+
+    color: #27366f;
+
+    font-size: 15px;
+}
+
+.empty-state p {
+    margin: 0;
+
+    color: #8791ad;
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   TABLE FOOTER
+========================================================= */
+
+.table-footer {
+    min-height: 65px;
+
+    padding: 12px 18px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    box-sizing: border-box;
+
+    border-top: 1px solid #eef1f7;
+
+    background: #ffffff;
+}
+
+.results-count {
+    color: #7180a1;
+
+    font-size: 12px;
+}
+
+
+/* =========================================================
+   PAGINATION
+========================================================= */
+
+.pagination {
+    display: flex;
+
+    align-items: center;
+
+    gap: 7px;
+}
+
+.page-button {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    box-sizing: border-box;
+
+    border: 1px solid #e2e7f1;
+    border-radius: 7px;
+
+    background: #ffffff;
+
+    color: #66749a;
+
+    text-decoration: none;
+
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.page-button:hover {
+    border-color: #2768e8;
+
+    background: #f7f9ff;
+
+    color: #2768e8;
+}
+
+.page-button.active {
+    border-color: #2768e8;
+
+    background: #2768e8;
+
+    color: #ffffff;
+}
+
+.page-button.disabled {
+    background: #fafbfc;
+
+    color: #c5cbda;
+
+    cursor: default;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.users-page-footer {
+    width: 100%;
+
+    padding: 18px 0 4px;
+
+    box-sizing: border-box;
+
+    color: #8993ae;
+
+    font-size: 11px;
+
+    text-align: center;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
+    .search-form {
+        flex-wrap: wrap;
+    }
+
+    .search-box {
+        flex: 1;
+
+        min-width: 250px;
+    }
+
+}
+
+
+@media (max-width: 768px) {
+
+    .users-page-header h1 {
+        font-size: 25px;
+    }
+
+    .search-form {
+        flex-direction: column;
+
+        align-items: stretch;
+    }
+
+    .search-box {
+        width: 100%;
+    }
+
+    .search-button {
+        width: 100%;
+    }
+
+    .table-footer {
+        flex-direction: column;
+
+        align-items: flex-start;
+
+        gap: 15px;
+    }
+
+}

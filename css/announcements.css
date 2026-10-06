@@ -1,0 +1,1289 @@
+/* =========================================================
+   CITISENSE - ANNOUNCEMENTS
+   announcements.css
+========================================================= */
+
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+.main-content {
+    padding: 32px 42px 24px;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.announcements-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    margin-bottom: 28px;
+}
+
+.announcements-title h1 {
+    margin: 0;
+
+    font-size: 34px;
+    line-height: 1.2;
+    font-weight: 700;
+
+    color: #101b55;
+}
+
+.announcements-title p {
+    margin: 8px 0 0;
+
+    font-size: 16px;
+
+    color: #7180a5;
+}
+
+
+/* =========================================================
+   HEADER ACTIONS
+========================================================= */
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+
+.notification-button {
+    position: relative;
+
+    width: 48px;
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid #edf0f7;
+    border-radius: 12px;
+
+    background: #ffffff;
+    color: #1769ff;
+
+    font-size: 21px;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 3px 12px rgba(38, 70, 120, 0.04);
+
+    transition:
+        background 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+
+.notification-button:hover {
+    background: #f7faff;
+
+    box-shadow:
+        0 5px 18px rgba(38, 70, 120, 0.08);
+
+    transform: translateY(-1px);
+}
+
+
+.notification-badge {
+    position: absolute;
+
+    top: -5px;
+    right: -5px;
+
+    min-width: 20px;
+    height: 20px;
+
+    padding: 0 5px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #ff3b4f;
+    color: #ffffff;
+
+    border-radius: 50%;
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   BARANGAY INFORMATION
+========================================================= */
+
+.announcement-location {
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    margin-bottom: 18px;
+
+    color: #7180a5;
+
+    font-size: 14px;
+}
+
+
+.announcement-location i {
+    color: #1769ff;
+
+    font-size: 17px;
+}
+
+
+.announcement-location strong {
+    color: #26355f;
+}
+
+
+/* =========================================================
+   TOOLBAR
+========================================================= */
+
+.announcement-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    padding: 18px 20px;
+
+    margin-bottom: 22px;
+
+    background: #ffffff;
+
+    border: 1px solid #edf1f8;
+    border-radius: 14px;
+
+    box-shadow:
+        0 4px 18px rgba(44, 76, 125, 0.04);
+}
+
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+.announcement-search {
+    width: 430px;
+    height: 46px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 0 15px;
+
+    background: #ffffff;
+
+    border: 1px solid #dfe6f1;
+    border-radius: 9px;
+
+    box-sizing: border-box;
+}
+
+
+.announcement-search i {
+    margin-right: 11px;
+
+    color: #91a0bd;
+
+    font-size: 18px;
+}
+
+
+.announcement-search input {
+    width: 100%;
+
+    border: none;
+    outline: none;
+
+    background: transparent;
+
+    color: #24315f;
+
+    font-family: inherit;
+    font-size: 14px;
+}
+
+
+.announcement-search input::placeholder {
+    color: #9ba8c0;
+}
+
+
+/* =========================================================
+   NEW ANNOUNCEMENT BUTTON
+========================================================= */
+
+.new-announcement-button {
+    height: 46px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 9px;
+
+    padding: 0 21px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #1769ff;
+    color: #ffffff;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 5px 12px rgba(23, 105, 255, 0.16);
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+
+.new-announcement-button i {
+    font-size: 19px;
+}
+
+
+.new-announcement-button:hover {
+    background: #075ce8;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 7px 16px rgba(23, 105, 255, 0.22);
+}
+
+
+/* =========================================================
+   SUCCESS / ERROR ALERT
+========================================================= */
+
+.announcement-alert {
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    padding: 12px 15px;
+
+    margin-bottom: 18px;
+
+    border-radius: 9px;
+
+    font-size: 13px;
+}
+
+
+.announcement-alert.success {
+    background: #edf9f2;
+    color: #16834f;
+
+    border: 1px solid #ccefdc;
+}
+
+
+.announcement-alert.error {
+    background: #fff1f2;
+    color: #d9374c;
+
+    border: 1px solid #ffd4d9;
+}
+
+
+/* =========================================================
+   ANNOUNCEMENTS LIST
+========================================================= */
+
+.announcement-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 12px;
+}
+
+
+/* =========================================================
+   ANNOUNCEMENT CARD
+========================================================= */
+
+.announcement-card {
+    position: relative;
+
+    display: flex;
+    align-items: flex-start;
+
+    min-height: 126px;
+
+    padding: 25px 70px 23px 20px;
+
+    background: #ffffff;
+
+    border: 1px solid #edf1f7;
+    border-radius: 14px;
+
+    box-sizing: border-box;
+
+    box-shadow:
+        0 4px 16px rgba(44, 76, 125, 0.035);
+
+    transition:
+        box-shadow 0.2s ease,
+        transform 0.2s ease,
+        border-color 0.2s ease;
+}
+
+
+.announcement-card:hover {
+    border-color: #e1e8f4;
+
+    box-shadow:
+        0 7px 22px rgba(44, 76, 125, 0.07);
+
+    transform: translateY(-1px);
+}
+
+
+/* =========================================================
+   ANNOUNCEMENT ICON
+========================================================= */
+
+.announcement-icon {
+    flex-shrink: 0;
+
+    width: 78px;
+    height: 78px;
+
+    margin-right: 25px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #eef5ff;
+    color: #1769ff;
+
+    font-size: 29px;
+}
+
+
+/* =========================================================
+   OPTIONAL ICON COLORS
+========================================================= */
+
+.announcement-icon.blue {
+    background: #eef5ff;
+    color: #1769ff;
+}
+
+
+.announcement-icon.green {
+    background: #effbf4;
+    color: #1db56b;
+}
+
+
+.announcement-icon.purple {
+    background: #f5efff;
+    color: #7b43f6;
+}
+
+
+.announcement-icon.orange {
+    background: #fff7ed;
+    color: #ff921f;
+}
+
+
+.announcement-icon.info {
+    background: #eef6ff;
+    color: #1683ff;
+}
+
+
+/* =========================================================
+   ANNOUNCEMENT BODY
+========================================================= */
+
+.announcement-body {
+    flex: 1;
+
+    min-width: 0;
+}
+
+
+.announcement-body h2 {
+    margin: 0 0 8px;
+
+    color: #101b55;
+
+    font-size: 18px;
+    line-height: 1.3;
+
+    font-weight: 700;
+}
+
+
+.announcement-body p {
+    margin: 0 0 14px;
+
+    max-width: 900px;
+
+    color: #66769d;
+
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+
+/* =========================================================
+   ANNOUNCEMENT META
+========================================================= */
+
+.announcement-meta {
+    display: flex;
+    align-items: center;
+
+    gap: 30px;
+
+    color: #7483a5;
+
+    font-size: 13px;
+    margin-top: 10px;
+}
+
+
+.announcement-meta span {
+    display: inline-flex;
+    align-items: center;
+
+    gap: 10px;
+}
+
+
+.announcement-meta i {
+    color: #7487ad;
+
+    font-size: 16px;
+}
+
+
+/* =========================================================
+   ANNOUNCEMENT ACTIONS
+========================================================= */
+
+.announcement-actions {
+    position: absolute;
+
+    top: 22px;
+    right: 20px;
+}
+
+
+/* =========================================================
+   THREE-DOT BUTTON
+========================================================= */
+
+.announcement-menu-button {
+    width: 36px;
+    height: 36px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 8px;
+
+    background: transparent;
+    color: #60729c;
+
+    font-size: 19px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+
+.announcement-menu-button:hover {
+    background: #f4f7fc;
+
+    color: #1769ff;
+}
+
+
+/* =========================================================
+   DROPDOWN MENU
+========================================================= */
+
+.announcement-menu {
+    position: absolute;
+
+    top: 42px;
+    right: 0;
+
+    width: 150px;
+
+    padding: 7px;
+
+    background: #ffffff;
+
+    border: 1px solid #e5eaf3;
+    border-radius: 9px;
+
+    box-shadow:
+        0 10px 30px rgba(30, 54, 100, 0.13);
+
+    z-index: 100;
+
+    opacity: 0;
+    visibility: hidden;
+
+    transform: translateY(-5px);
+
+    transition:
+        opacity 0.15s ease,
+        visibility 0.15s ease,
+        transform 0.15s ease;
+}
+
+
+.announcement-menu.show {
+    opacity: 1;
+    visibility: visible;
+
+    transform: translateY(0);
+}
+
+
+.announcement-menu button {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    padding: 9px 10px;
+
+    border: none;
+    border-radius: 6px;
+
+    background: transparent;
+
+    color: #34456f;
+
+    font-family: inherit;
+    font-size: 13px;
+
+    cursor: pointer;
+
+    box-sizing: border-box;
+
+    text-align: left;
+}
+
+
+.announcement-menu button:hover {
+    background: #f4f7ff;
+
+    color: #1769ff;
+}
+
+
+.announcement-menu .delete-option {
+    color: #d9374c;
+}
+
+
+.announcement-menu .delete-option:hover {
+    background: #fff2f3;
+
+    color: #e5394f;
+}
+
+
+/* =========================================================
+   EMPTY ANNOUNCEMENTS CARD
+========================================================= */
+
+.no-announcements {
+    width: 100%;
+    min-height: 300px;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 40px;
+
+    box-sizing: border-box;
+
+    background: #ffffff;
+
+    border: 1px solid #edf1f7;
+    border-radius: 14px;
+
+    text-align: center;
+
+    box-shadow:
+        0 4px 16px rgba(44, 76, 125, 0.035);
+}
+
+
+.no-announcements-icon {
+    width: 72px;
+    height: 72px;
+
+    margin-bottom: 15px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #eef5ff;
+    color: #1769ff;
+
+    font-size: 32px;
+}
+
+
+.no-announcements h2 {
+    margin: 0 0 7px;
+
+    color: #24315f;
+
+    font-size: 18px;
+    line-height: 1.3;
+
+    font-weight: 700;
+}
+
+
+.no-announcements p {
+    margin: 0;
+
+    color: #8492ad;
+
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   MODAL OVERLAY
+========================================================= */
+
+.announcement-modal-overlay {
+    position: fixed;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 24px;
+
+    background: rgba(15, 32, 70, 0.38);
+
+    box-sizing: border-box;
+
+    z-index: 9999;
+
+    opacity: 0;
+    visibility: hidden;
+
+    pointer-events: none;
+
+    transition:
+        opacity 0.2s ease,
+        visibility 0.2s ease;
+}
+
+
+/* =========================================================
+   SHOW MODAL
+========================================================= */
+
+.announcement-modal-overlay.show {
+    opacity: 1;
+
+    visibility: visible;
+
+    pointer-events: auto;
+}
+
+
+/* =========================================================
+   MODAL BOX
+========================================================= */
+
+.announcement-modal {
+    position: relative;
+
+    width: 100%;
+
+    max-width: 620px;
+
+    max-height: 90vh;
+
+    overflow-y: auto;
+
+    background: #ffffff;
+
+    border-radius: 18px;
+
+    box-shadow:
+        0 20px 60px rgba(20, 45, 100, 0.20);
+
+    transform: translateY(15px) scale(0.98);
+
+    transition:
+        transform 0.2s ease;
+}
+
+
+.announcement-modal-overlay.show
+.announcement-modal {
+    transform: translateY(0) scale(1);
+}
+
+
+/* =========================================================
+   MODAL HEADER
+========================================================= */
+
+.announcement-modal-header {
+    display: flex;
+
+    justify-content: space-between;
+    align-items: flex-start;
+
+    padding: 26px 30px 20px;
+
+    border-bottom: 1px solid #edf1f8;
+}
+
+
+.announcement-modal-header h2 {
+    margin: 0 0 6px;
+
+    color: #14275c;
+
+    font-size: 24px;
+    line-height: 1.25;
+
+    font-weight: 700;
+}
+
+
+.announcement-modal-header p {
+    margin: 0;
+
+    color: #7a89a8;
+
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+
+/* =========================================================
+   MODAL CLOSE BUTTON
+========================================================= */
+
+.modal-close {
+    flex-shrink: 0;
+
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    margin-left: 15px;
+
+    border: none;
+
+    background: #f5f7fc;
+
+    color: #7182a5;
+
+    border-radius: 10px;
+
+    font-size: 16px;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+
+.modal-close:hover {
+    background: #edf2fb;
+
+    color: #1769ff;
+}
+
+
+/* =========================================================
+   ANNOUNCEMENT FORM
+========================================================= */
+
+.announcement-form {
+    padding: 28px 30px 30px;
+}
+
+
+.form-group {
+    margin-bottom: 22px;
+}
+
+
+.form-group label {
+    display: block;
+
+    margin-bottom: 9px;
+
+    color: #25365f;
+
+    font-size: 14px;
+
+    font-weight: 600;
+}
+
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+
+    box-sizing: border-box;
+
+    border: 1px solid #dce4f1;
+    border-radius: 10px;
+
+    background: #ffffff;
+
+    padding: 13px 15px;
+
+    color: #1d2c4e;
+
+    font-family: inherit;
+    font-size: 14px;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+
+.form-group input {
+    height: 48px;
+}
+
+
+.form-group textarea {
+    min-height: 150px;
+
+    resize: vertical;
+
+    line-height: 1.6;
+}
+
+
+.form-group select {
+    height: 48px;
+
+    cursor: pointer;
+}
+
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+    color: #a3afc5;
+}
+
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+    border-color: #2672ff;
+
+    box-shadow:
+        0 0 0 3px rgba(38, 114, 255, 0.10);
+}
+
+
+/* =========================================================
+   MODAL FORM ACTIONS
+========================================================= */
+
+.announcement-form-actions {
+    display: flex;
+
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 12px;
+
+    padding-top: 5px;
+}
+
+
+/* =========================================================
+   CANCEL BUTTON
+========================================================= */
+
+.cancel-announcement {
+    min-height: 44px;
+
+    padding: 0 20px;
+
+    border: 1px solid #dce4f1;
+
+    border-radius: 9px;
+
+    background: #ffffff;
+
+    color: #5d6d8d;
+
+    font-family: inherit;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background 0.2s ease,
+        border-color 0.2s ease;
+}
+
+
+.cancel-announcement:hover {
+    background: #f5f7fb;
+
+    border-color: #cfd8e8;
+}
+
+
+/* =========================================================
+   PUBLISH / SAVE BUTTON
+========================================================= */
+
+.publish-announcement {
+    min-height: 44px;
+
+    padding: 0 20px;
+
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    border: none;
+
+    border-radius: 9px;
+
+    background: #1769ff;
+
+    color: #ffffff;
+
+    font-family: inherit;
+
+    font-size: 14px;
+
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 6px 16px rgba(23, 105, 255, 0.20);
+
+    transition:
+        background 0.2s ease,
+        transform 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+
+.publish-announcement:hover {
+    background: #0f5ce5;
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 8px 20px rgba(23, 105, 255, 0.24);
+}
+
+
+/* =========================================================
+   DELETE MODAL
+========================================================= */
+
+#deleteModal .announcement-modal {
+    max-width: 470px;
+}
+
+
+#deleteModal .announcement-modal-header h2 {
+    color: #a9263b;
+}
+
+
+/* =========================================================
+   PREVENT PAGE SCROLL WHEN MODAL IS OPEN
+========================================================= */
+
+body.modal-open {
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+.dashboard-footer {
+    margin-top: 30px;
+
+    padding: 18px 0;
+
+    text-align: center;
+
+    color: #8b98b3;
+
+    font-size: 12px;
+}
+
+
+.dashboard-footer strong {
+    color: #1769ff;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1100px) {
+
+    .main-content {
+        padding: 28px 25px;
+    }
+
+
+    .announcement-search {
+        width: 350px;
+    }
+
+
+    .announcement-card {
+        padding-right: 60px;
+    }
+
+}
+
+
+@media (max-width: 800px) {
+
+    .announcements-header {
+        flex-direction: column;
+
+        gap: 18px;
+    }
+
+
+    .announcement-toolbar {
+        flex-direction: column;
+
+        align-items: stretch;
+
+        gap: 14px;
+    }
+
+
+    .announcement-search {
+        width: 100%;
+    }
+
+
+    .new-announcement-button {
+        width: 100%;
+    }
+
+
+    .announcement-card {
+        padding: 20px 55px 20px 18px;
+    }
+
+
+    .announcement-icon {
+        width: 58px;
+        height: 58px;
+
+        margin-right: 16px;
+
+        font-size: 23px;
+    }
+
+
+    .announcement-body h2 {
+        font-size: 16px;
+    }
+
+
+    .announcement-body p {
+        font-size: 13px;
+    }
+
+
+    .announcement-meta {
+        flex-wrap: wrap;
+
+        gap: 10px 18px;
+    }
+
+}
+
+
+@media (max-width: 600px) {
+
+    .main-content {
+        padding: 22px 15px;
+    }
+
+
+    .announcements-title h1 {
+        font-size: 27px;
+    }
+
+
+    .announcements-title p {
+        font-size: 14px;
+    }
+
+
+    .announcement-card {
+        flex-direction: column;
+
+        gap: 14px;
+
+        padding: 20px 55px 20px 18px;
+    }
+
+
+    .announcement-icon {
+        margin-right: 0;
+    }
+
+
+    .announcement-actions {
+        top: 18px;
+        right: 15px;
+    }
+
+
+    .announcement-modal-overlay {
+        padding: 15px;
+    }
+
+
+    .announcement-modal {
+        max-height: 90vh;
+    }
+
+
+    .announcement-modal-header {
+        padding: 22px;
+    }
+
+
+    .announcement-form {
+        padding: 22px;
+    }
+
+
+    .announcement-form-actions {
+        flex-direction: column-reverse;
+
+        align-items: stretch;
+    }
+
+
+    .cancel-announcement,
+    .publish-announcement {
+        width: 100%;
+
+        justify-content: center;
+    }
+
+}
+
+
+@media (max-width: 420px) {
+
+    .announcement-card {
+        padding-right: 50px;
+    }
+
+
+    .announcement-meta {
+        flex-direction: column;
+
+        align-items: flex-start;
+
+        gap: 8px;
+    }
+
+
+    .announcement-modal-header h2 {
+        font-size: 21px;
+    }
+
+}

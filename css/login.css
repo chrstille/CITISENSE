@@ -1,0 +1,454 @@
+/* ==============================
+   CitiSense Admin Login
+   ============================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    min-height: 100vh;
+    color: #14233b;
+
+    /* Soft blue-white background */
+    background:
+        radial-gradient(
+            circle at 0% 0%,
+            rgba(218, 232, 255, 0.65) 0,
+            rgba(218, 232, 255, 0.65) 13%,
+            transparent 13.5%
+        ),
+        radial-gradient(
+            circle at 100% 100%,
+            rgba(218, 232, 255, 0.55) 0,
+            rgba(218, 232, 255, 0.55) 13%,
+            transparent 13.5%
+        ),
+        #f8faff;
+}
+
+
+/* ==============================
+   Main Login Area
+   ============================== */
+
+.login-page {
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    padding: 40px 20px;
+}
+
+
+/* ==============================
+   Login Card
+   ============================== */
+
+.login-card {
+    width: 100%;
+    max-width: 620px;
+
+    background: rgba(255, 255, 255, 0.96);
+
+    padding: 55px 50px;
+
+    border-radius: 22px;
+
+    box-shadow:
+        0 12px 40px rgba(91, 139, 220, 0.12),
+        0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+
+/* ==============================
+   CitiSense Branding
+   ============================== */
+
+.brand {
+    text-align: center;
+    margin-bottom: 48px;
+}
+
+.brand h1 {
+    font-size: 46px;
+    font-weight: 700;
+    letter-spacing: -2px;
+
+    color: #405579;
+
+    margin-bottom: 6px;
+}
+
+/* Make "Sense" blue if we later split the logo */
+.brand h1 span {
+    color: #4f8bea;
+}
+
+.brand p {
+    font-size: 17px;
+    letter-spacing: 4px;
+
+    color: #7183a3;
+
+    margin: 0;
+}
+
+
+/* ==============================
+   Login Header
+   ============================== */
+
+.login-header {
+    text-align: center;
+
+    margin-bottom: 35px;
+}
+
+.login-header h2 {
+    font-size: 31px;
+    font-weight: 700;
+
+    color: #14233b;
+
+    margin-bottom: 10px;
+}
+
+.login-header p {
+    font-size: 16px;
+    line-height: 1.5;
+
+    color: #7183a3;
+}
+
+
+/* ==============================
+   Error Message
+   ============================== */
+
+.error-message {
+    background-color: #fff1f2;
+    color: #c2414c;
+
+    border: 1px solid #ffd5d8;
+
+    padding: 13px 16px;
+
+    border-radius: 10px;
+
+    font-size: 14px;
+
+    margin-bottom: 22px;
+}
+
+
+/* ==============================
+   Form
+   ============================== */
+
+.form-group {
+    margin-bottom: 25px;
+}
+
+.form-group label {
+    display: block;
+
+    font-size: 16px;
+    font-weight: 600;
+
+    color: #182842;
+
+    margin-bottom: 10px;
+}
+
+.form-group input {
+    width: 100%;
+
+    height: 62px;
+
+    padding: 0 18px;
+
+    border: 1.5px solid #adc8f2;
+
+    border-radius: 14px;
+
+    background-color: #ffffff;
+
+    color: #263956;
+
+    font-size: 16px;
+
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.form-group input::placeholder {
+    color: #9aacc9;
+}
+
+.form-group input:focus {
+    border-color: #4f8bea;
+
+    box-shadow:
+        0 0 0 4px rgba(79, 139, 234, 0.12);
+}
+
+
+/* ==============================
+   Forgot Password
+   ============================== */
+
+.forgot-password {
+    text-align: right;
+
+    margin-top: -8px;
+    margin-bottom: 25px;
+}
+
+.forgot-password a {
+    color: #4f8bea;
+
+    font-size: 15px;
+    font-weight: 600;
+
+    text-decoration: none;
+
+    transition: color 0.2s ease;
+}
+
+.forgot-password a:hover {
+    color: #3675d4;
+    text-decoration: underline;
+}
+
+
+/* ==============================
+   Login Button
+   ============================== */
+
+.login-button {
+    width: 100%;
+
+    height: 62px;
+
+    border: none;
+    border-radius: 13px;
+
+    background: linear-gradient(
+        135deg,
+        #5b91ee,
+        #4f84e5
+    );
+
+    color: #ffffff;
+
+    font-size: 18px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 6px 15px rgba(79, 139, 234, 0.20);
+
+    transition:
+        transform 0.15s ease,
+        box-shadow 0.15s ease,
+        background 0.2s ease;
+}
+
+.login-button:hover {
+    background: linear-gradient(
+        135deg,
+        #4f84e5,
+        #4479d5
+    );
+
+    box-shadow:
+        0 8px 20px rgba(79, 139, 234, 0.28);
+
+    transform: translateY(-1px);
+}
+
+.login-button:active {
+    transform: translateY(0);
+}
+
+
+/* ==============================
+   Responsive Design
+   ============================== */
+
+@media (max-width: 600px) {
+
+    .login-page {
+        padding: 20px 15px;
+    }
+
+    .login-card {
+        padding: 40px 25px;
+
+        border-radius: 18px;
+    }
+
+    .brand h1 {
+        font-size: 38px;
+    }
+
+    .brand p {
+        font-size: 14px;
+        letter-spacing: 3px;
+    }
+
+    .login-header h2 {
+        font-size: 26px;
+    }
+
+    .login-header p {
+        font-size: 14px;
+    }
+
+    .form-group input,
+    .login-button {
+        height: 56px;
+    }
+}
+
+/* ==============================
+   Soft City Background
+   ============================== */
+
+.login-page {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Background city layer */
+.login-page::before {
+    content: "";
+    position: absolute;
+
+    left: 0;
+    bottom: 0;
+
+    width: 100%;
+    height: 180px;
+
+    background:
+        /* Building 1 */
+        linear-gradient(
+            #dceaff,
+            #dceaff
+        ) 5% 100% / 55px 130px no-repeat,
+
+        /* Building 2 */
+        linear-gradient(
+            #e5efff,
+            #e5efff
+        ) 12% 100% / 38px 85px no-repeat,
+
+        /* Building 3 */
+        linear-gradient(
+            #d7e7ff,
+            #d7e7ff
+        ) 20% 100% / 65px 105px no-repeat,
+
+        /* Building 4 */
+        linear-gradient(
+            #e3edfc,
+            #e3edfc
+        ) 29% 100% / 42px 70px no-repeat,
+
+        /* Building 5 */
+        linear-gradient(
+            #d9e8ff,
+            #d9e8ff
+        ) 72% 100% / 50px 95px no-repeat,
+
+        /* Building 6 */
+        linear-gradient(
+            #e4efff,
+            #e4efff
+        ) 79% 100% / 70px 125px no-repeat,
+
+        /* Building 7 */
+        linear-gradient(
+            #d8e8ff,
+            #d8e8ff
+        ) 89% 100% / 45px 85px no-repeat,
+
+        /* Building 8 */
+        linear-gradient(
+            #e5efff,
+            #e5efff
+        ) 96% 100% / 55px 110px no-repeat;
+
+    opacity: 0.7;
+
+    z-index: 0;
+}
+
+
+/* ==============================
+   Building Windows
+   ============================== */
+
+.login-page::after {
+    content: "";
+
+    position: absolute;
+
+    left: 0;
+    bottom: 0;
+
+    width: 100%;
+    height: 180px;
+
+    background:
+        /* Left building windows */
+        repeating-linear-gradient(
+            to bottom,
+            transparent 0 18px,
+            rgba(255, 255, 255, 0.55) 18px 23px
+        ) 5% 100% / 55px 130px no-repeat,
+
+        /* Middle-left building windows */
+        repeating-linear-gradient(
+            to bottom,
+            transparent 0 16px,
+            rgba(255, 255, 255, 0.55) 16px 21px
+        ) 20% 100% / 65px 105px no-repeat,
+
+        /* Right building windows */
+        repeating-linear-gradient(
+            to bottom,
+            transparent 0 17px,
+            rgba(255, 255, 255, 0.55) 17px 22px
+        ) 79% 100% / 70px 125px no-repeat,
+
+        /* Right small building */
+        repeating-linear-gradient(
+            to bottom,
+            transparent 0 16px,
+            rgba(255, 255, 255, 0.55) 16px 21px
+        ) 96% 100% / 55px 110px no-repeat;
+
+    opacity: 0.55;
+
+    z-index: 0;
+}
+
+
+/* Keep the login card above the buildings */
+
+.login-card {
+    position: relative;
+    z-index: 2;
+} 

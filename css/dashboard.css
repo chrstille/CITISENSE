@@ -1,0 +1,1162 @@
+/* =========================================
+   CitiSense Admin Dashboard
+   ========================================= */
+
+
+/* =========================================
+   RESET
+   ========================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f8faff;
+    color: #14233b;
+}
+
+
+/* =========================================
+   DASHBOARD CONTAINER
+   ========================================= */
+
+.dashboard-container {
+    min-height: 100vh;
+    display: flex;
+}
+
+
+
+/* =========================================
+   MAIN CONTENT
+   ========================================= */
+
+.main-content {
+    margin-left: 194px;
+
+    width: calc(100% - 194px);
+
+    min-height: 100vh;
+
+    padding: 28px 38px 18px;
+
+    background:
+        radial-gradient(
+            circle at 100% 0%,
+            rgba(224, 237, 255, 0.45),
+            transparent 22%
+        ),
+        #f9fbff;
+}
+
+
+/* =========================================
+   HEADER
+   ========================================= */
+
+.dashboard-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+
+    margin-bottom: 22px;
+}
+
+.welcome-section h1 {
+    font-size: 34px;
+
+    line-height: 1.25;
+
+    color: #101d45;
+
+    font-weight: 700;
+
+    letter-spacing: -0.7px;
+
+    margin-bottom: 7px;
+}
+
+.welcome-section p {
+    color: #7385a5;
+
+    font-size: 14px;
+
+    line-height: 1.5;
+}
+
+.welcome-section strong {
+    color: #617492;
+    font-weight: 600;
+}
+
+
+/* =========================================
+   NOTIFICATION
+   ========================================= */
+
+.header-right {
+    padding-top: 2px;
+}
+
+.notification-button {
+    width: 54px;
+    height: 42px;
+
+    border: 1px solid #edf1f7;
+
+    border-radius: 10px;
+
+    background: #ffffff;
+
+    color: #2b78e8;
+
+    font-size: 20px;
+
+    position: relative;
+
+    cursor: pointer;
+
+    box-shadow: 0 3px 12px rgba(69, 105, 160, 0.04);
+}
+
+.notification-badge {
+    position: absolute;
+
+    top: -7px;
+    right: -7px;
+
+    min-width: 21px;
+    height: 21px;
+
+    padding: 0 5px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #f04450;
+
+    color: #ffffff;
+
+    border-radius: 50%;
+
+    font-size: 11px;
+    font-weight: 700;
+}
+
+
+/* =========================================
+   DATE BOX
+   ========================================= */
+
+.date-box {
+    width: fit-content;
+
+    min-width: 164px;
+    height: 44px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 11px;
+
+    padding: 0 16px;
+
+    background: #ffffff;
+
+    border: 1px solid #edf1f7;
+
+    border-radius: 10px;
+
+    box-shadow:
+        0 4px 14px rgba(71, 109, 167, 0.05);
+
+    color: #17254a;
+
+    font-size: 13px;
+
+    margin-bottom: 22px;
+}
+
+.date-box i {
+    font-size: 18px;
+    color: #17254a;
+}
+
+
+/* =========================================
+   REPORT STATISTICS SECTION
+   ========================================= */
+
+.statistics-section {
+    background: #f7faff;
+
+    border: 1px solid #e5edf9;
+
+    border-radius: 12px;
+
+    padding: 16px 18px 20px;
+
+    margin-bottom: 22px;
+}
+
+.statistics-section > h3 {
+    color: #1475f3;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    margin-bottom: 15px;
+}
+
+
+/* =========================================
+   STATISTICS GRID
+   ========================================= */
+
+.statistics-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 15px;
+}
+
+
+/* =========================================
+   STAT CARD
+   ========================================= */
+
+.stat-card {
+    min-height: 92px;
+
+    background: #ffffff;
+
+    border: 1px solid #edf1f7;
+
+    border-radius: 11px;
+
+    padding: 16px;
+
+    display: flex;
+    align-items: center;
+
+    box-shadow:
+        0 3px 12px rgba(70, 105, 160, 0.04);
+}
+
+.stat-icon {
+    width: 45px;
+    height: 45px;
+
+    border-radius: 11px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 24px;
+
+    flex-shrink: 0;
+
+    margin-right: 12px;
+}
+
+
+/* STAT ICON COLORS */
+
+.stat-icon.purple {
+    color: #7b45ee;
+    background: #f3edff;
+}
+
+.stat-icon.orange {
+    color: #ff8a00;
+    background: #fff5e8;
+}
+
+.stat-icon.blue {
+    color: #1478ef;
+    background: #edf5ff;
+}
+
+.stat-icon.green {
+    color: #12b768;
+    background: #eafaf2;
+}
+
+
+.stat-info h2 {
+    font-size: 23px;
+
+    color: #101d45;
+
+    line-height: 1;
+
+    margin-bottom: 7px;
+}
+
+.stat-info p {
+    font-size: 12px;
+
+    color: #26375b;
+}
+
+
+/* =========================================
+   DASHBOARD CARD
+   ========================================= */
+
+.dashboard-card {
+    background: #ffffff;
+
+    border: 1px solid #e8eef7;
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 3px 15px rgba(67, 104, 160, 0.04);
+}
+
+
+/* =========================================
+   CATEGORIES CARD
+   ========================================= */
+
+.categories-card {
+    width: 100%;
+
+    margin-top: 0;
+
+    padding-top: 17px;
+}
+
+.card-header {
+    padding: 0 18px 14px;
+}
+
+.card-header h3 {
+    font-size: 14px;
+
+    color: #101d45;
+
+    font-weight: 700;
+}
+
+
+/* =========================================
+   CATEGORY GRID
+   ========================================= */
+
+.category-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, 1fr);
+
+    gap: 20px;
+
+    padding: 5px 18px 22px;
+}
+
+
+/* =========================================
+   CATEGORY ITEM
+   ========================================= */
+
+.category-item {
+    text-align: center;
+
+    padding: 5px 8px 10px;
+}
+
+.category-icon {
+    width: 58px;
+    height: 58px;
+
+    margin: 0 auto 12px;
+
+    border-radius: 11px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 27px;
+}
+
+.category-icon.blue {
+    color: #1978ee;
+    background: #edf5ff;
+}
+
+.category-item h2 {
+    font-size: 22px;
+
+    color: #101d45;
+
+    line-height: 1;
+
+    margin-bottom: 7px;
+}
+
+.category-item p {
+    min-height: 28px;
+
+    font-size: 11px;
+
+    line-height: 1.3;
+
+    color: #17254a;
+
+    margin-bottom: 9px;
+}
+
+.category-item > span {
+    display: block;
+
+    font-size: 11px;
+
+    color: #26375b;
+
+    margin-bottom: 7px;
+}
+
+
+/* =========================================
+   PROGRESS BAR
+   ========================================= */
+
+.progress {
+    width: 100%;
+
+    max-width: 105px;
+
+    height: 5px;
+
+    margin: 0 auto;
+
+    background: #edf0f5;
+
+    border-radius: 10px;
+
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+
+    border-radius: 10px;
+
+    transition: width 0.3s ease;
+}
+
+.blue-bar {
+    background: #1877ef;
+}
+
+
+/* =========================================
+   NO DATA
+   ========================================= */
+
+.no-data {
+    grid-column: 1 / -1;
+
+    text-align: center;
+
+    padding: 40px 20px;
+
+    color: #7183a3;
+}
+
+.no-data i {
+    display: block;
+
+    font-size: 35px;
+
+    margin-bottom: 10px;
+
+    color: #9aacc9;
+}
+
+.no-data p {
+    font-size: 13px;
+}
+
+
+/* =========================================
+   VIEW ALL CATEGORIES
+   ========================================= */
+
+.view-categories {
+    border-top: 1px solid #edf1f7;
+
+    text-align: center;
+
+    padding: 14px;
+}
+
+.view-categories a {
+    color: #1478ef;
+
+    text-decoration: none;
+
+    font-size: 12px;
+
+    font-weight: 500;
+}
+
+.view-categories a:hover {
+    text-decoration: underline;
+}
+
+.view-categories i {
+    margin-left: 5px;
+}
+
+/* =========================================
+   RESPONSIVE DESIGN
+   ========================================= */
+
+@media (max-width: 1100px) {
+
+    .main-content {
+    padding: 32px 42px 24px;
+    min-height: 100vh;
+    box-sizing: border-box;
+}
+
+    .statistics-grid {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+    .category-grid {
+        grid-template-columns:
+            repeat(2, 1fr);
+    }
+
+}
+
+
+@media (max-width: 800px) {
+
+    .sidebar {
+        width: 170px;
+    }
+
+    .main-content {
+        margin-left: 170px;
+
+        width: calc(100% - 170px);
+    }
+
+    .brand-text h2 {
+        font-size: 18px;
+    }
+
+    .brand-text p {
+        font-size: 5px;
+    }
+
+    .welcome-section h1 {
+        font-size: 23px;
+    }
+
+}
+
+
+@media (max-width: 650px) {
+
+    .sidebar {
+        width: 70px;
+
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+
+    .sidebar-brand {
+        justify-content: center;
+
+        padding: 0;
+
+        margin-bottom: 25px;
+    }
+
+    .brand-text {
+        display: none;
+    }
+
+    .nav-item {
+        justify-content: center;
+
+        padding: 0;
+    }
+
+    .nav-item i {
+        margin-right: 0;
+    }
+
+    .nav-item span {
+        display: none;
+    }
+
+    .help-card {
+        display: none;
+    }
+
+    .logout-link {
+        justify-content: center;
+
+        padding: 10px 0;
+    }
+
+    .logout-link i {
+        margin-right: 0;
+    }
+
+    .logout-link span {
+        display: none;
+    }
+
+    .main-content {
+        margin-left: 70px;
+
+        width: calc(100% - 70px);
+
+        padding: 20px 15px;
+    }
+
+    .dashboard-header {
+        align-items: center;
+    }
+
+    .welcome-section h1 {
+        font-size: 20px;
+    }
+
+    .welcome-section p {
+        font-size: 12px;
+    }
+
+    .statistics-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .category-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 450px) {
+
+    .main-content {
+        padding: 15px 10px;
+    }
+
+    .welcome-section h1 {
+        font-size: 18px;
+    }
+
+    .notification-button {
+        width: 45px;
+        height: 38px;
+    }
+
+    .date-box {
+        width: 100%;
+    }
+
+}
+
+/* =========================================================
+   REPORTS BY CATEGORY + HEATMAP
+   ========================================================= */
+
+.dashboard-lower-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 14px;
+}
+
+
+/* =========================================================
+   HEATMAP CARD
+   ========================================================= */
+
+.heatmap-card {
+    overflow: hidden;
+}
+
+
+/* =========================================================
+   MAP CONTAINER
+   ========================================================= */
+
+.heatmap-container {
+    position: relative;
+    height: 258px;
+    margin: 0 13px 13px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #eef2f1;
+}
+
+
+/* Actual Leaflet map */
+
+#reportHeatmap {
+    width: 100%;
+    height: 100%;
+}
+
+
+/* =========================================================
+   LEAFLET MAP CONTROLS
+   ========================================================= */
+
+#reportHeatmap .leaflet-control-zoom {
+    margin-top: 8px;
+    margin-right: 8px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+#reportHeatmap .leaflet-control-zoom a {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+
+    color: #18284b;
+    background: #ffffff;
+
+    border: none;
+}
+
+#reportHeatmap .leaflet-control-zoom a:hover {
+    background: #f1f6ff;
+    color: #1477f8;
+}
+
+
+/* =========================================================
+   HEATMAP LEGEND
+   ========================================================= */
+
+.heatmap-legend {
+    position: absolute;
+    z-index: 1000;
+
+    left: 9px;
+    bottom: 9px;
+
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 8px 11px;
+
+    background: rgba(255, 255, 255, 0.94);
+    border-radius: 6px;
+
+    font-size: 10px;
+    font-weight: 500;
+
+    color: #18284b;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+
+/* Heat intensity gradient */
+
+.legend-gradient {
+    width: 70px;
+    height: 8px;
+
+    border-radius: 10px;
+
+    background: linear-gradient(
+        to right,
+        #dce51c,
+        #ffb300,
+        #ff7600,
+        #ff3d00,
+        #ff0000
+    );
+}
+
+
+/* =========================================================
+   VIEW FULL HEATMAP BUTTON
+   ========================================================= */
+
+.full-heatmap {
+    position: absolute;
+    z-index: 1000;
+
+    right: 9px;
+    bottom: 9px;
+
+    display: flex;
+    align-items: center;
+
+    padding: 9px 11px;
+
+    background: #ffffff;
+    border-radius: 6px;
+
+    color: #1477f8;
+
+    text-decoration: none;
+
+    font-size: 10px;
+    font-weight: 600;
+
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+    transition:
+        background 0.2s ease,
+        color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.full-heatmap:hover {
+    background: #f1f6ff;
+    color: #0d65d8;
+    transform: translateY(-1px);
+}
+
+.full-heatmap i {
+    margin-left: 5px;
+}
+
+
+/* =========================================================
+   MAP POPUP
+   ========================================================= */
+
+.map-popup {
+    font-family: Arial, Helvetica, sans-serif;
+
+    font-size: 12px;
+    line-height: 1.55;
+
+    color: #18284b;
+
+    min-width: 150px;
+}
+
+.map-popup strong {
+    display: block;
+
+    margin-bottom: 3px;
+
+    color: #10224b;
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.map-popup small {
+    display: inline-block;
+
+    margin-top: 3px;
+
+    color: #667085;
+
+    font-size: 10px;
+}
+
+
+/* =========================================================
+   LEAFLET POPUP
+   ========================================================= */
+
+#reportHeatmap .leaflet-popup-content-wrapper {
+    border-radius: 8px;
+
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+#reportHeatmap .leaflet-popup-content {
+    margin: 11px 13px;
+}
+
+#reportHeatmap .leaflet-popup-tip {
+    box-shadow: none;
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+
+    .dashboard-lower-grid {
+        grid-template-columns: 1fr;
+    }
+
+}
+
+
+@media (max-width: 700px) {
+
+    .heatmap-container {
+        height: 280px;
+    }
+
+}
+
+
+@media (max-width: 550px) {
+
+    .heatmap-container {
+        height: 300px;
+        margin-left: 10px;
+        margin-right: 10px;
+    }
+
+    .heatmap-legend {
+        left: 7px;
+        bottom: 7px;
+    }
+
+    .full-heatmap {
+        right: 7px;
+        bottom: 7px;
+        padding: 8px 9px;
+    }
+
+}
+
+ /* ==========================================
+         MAP OVERRIDES
+    =========================================== */
+
+    
+        /* ======================================
+           LOWER DASHBOARD GRID
+        ======================================= */
+
+        .dashboard-lower-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                minmax(0, 1fr)
+                minmax(0, 1fr);
+
+            gap: 14px;
+
+            margin-top: 14px;
+
+        }
+
+
+        /* ======================================
+           INTERACTIVE MAP
+        ======================================= */
+
+        .heatmap-container {
+
+            position: relative;
+
+            height: 258px;
+
+            margin: 0 13px;
+
+            border-radius: 8px;
+
+            overflow: hidden;
+
+        }
+
+
+        #reportHeatmap {
+
+            width: 100%;
+
+            height: 100%;
+
+        }
+
+
+        /* ======================================
+           MAP LEGEND
+        ======================================= */
+
+        .heatmap-legend {
+
+            position: absolute;
+
+            z-index: 1000;
+
+            bottom: 9px;
+            left: 9px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 7px;
+
+            padding: 8px 11px;
+
+            background: rgba(
+                255,
+                255,
+                255,
+                0.94
+            );
+
+            border-radius: 5px;
+
+            font-size: 10px;
+
+            color: #18284b;
+
+            box-shadow:
+                0 2px 8px rgba(
+                    0,
+                    0,
+                    0,
+                    0.08
+                );
+
+        }
+
+
+        .legend-gradient {
+
+            width: 70px;
+
+            height: 8px;
+
+            border-radius: 10px;
+
+            background: linear-gradient(
+                to right,
+                #43d7bd,
+                #dce51c,
+                #ff9700,
+                #ff0000
+            );
+
+        }
+
+
+        /* ======================================
+           FULL HEATMAP BUTTON
+        ======================================= */
+
+        .full-heatmap {
+
+            position: absolute;
+
+            z-index: 1000;
+
+            right: 9px;
+            bottom: 9px;
+
+            padding: 9px 11px;
+
+            background: #ffffff;
+
+            border-radius: 6px;
+
+            color: #1477f8;
+
+            text-decoration: none;
+
+            font-size: 10px;
+
+            font-weight: 600;
+
+            box-shadow:
+                0 2px 8px rgba(
+                    0,
+                    0,
+                    0,
+                    0.08
+                );
+
+        }
+
+
+        .full-heatmap i {
+
+            margin-left: 4px;
+
+        }
+
+
+        /* ======================================
+           MAP POPUP
+        ======================================= */
+
+        .map-popup {
+
+            font-family:
+                Arial,
+                Helvetica,
+                sans-serif;
+
+            font-size: 12px;
+
+            line-height: 1.55;
+
+            color: #18284b;
+
+        }
+
+
+        .map-popup strong {
+
+            color: #10224b;
+
+            font-size: 13px;
+
+        }
+
+
+        /* ======================================
+           MOBILE
+        ======================================= */
+
+        @media (max-width: 1100px) {
+
+            .dashboard-lower-grid {
+
+                grid-template-columns: 1fr;
+
+            }
+
+        }
+
+
+        @media (max-width: 550px) {
+
+            .heatmap-container {
+
+                height: 300px;
+
+            }
+
+        }
