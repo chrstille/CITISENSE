@@ -2280,3 +2280,31 @@
         padding: 16px;
     }
 }
+
+.report-empty-state {
+    width: 100%;
+    padding: 48px 24px;
+    text-align: center;
+    border: 1px dashed #d1d5db;
+    border-radius: 12px;
+    background: #f9fafb;
+}
+
+.report-empty-icon {
+    font-size: 42px;
+    color: #9ca3af;
+    margin-bottom: 12px;
+}
+
+.report-empty-state h3 {
+    margin: 0 0 8px;
+    color: #374151;
+    font-size: 18px;
+}
+
+.report-empty-state p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.6;
+}

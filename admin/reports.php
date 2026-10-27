@@ -50,19 +50,51 @@ $selectedCategory = trim((string) ($_GET["categoryID"] ?? ""));
 $selectedStatus = trim((string) ($_GET["statusID"] ?? ""));
 $searchQuery = trim((string) ($_GET["search"] ?? ""));
 
+/* Validate date format: YYYY-MM-DD */
+
 $datePattern = '/^\d{4}-\d{2}-\d{2}$/';
 
-if ($startDate !== "" && !preg_match($datePattern, $startDate)) {
+if (
+    $startDate !== "" &&
+    (
+        !preg_match($datePattern, $startDate) ||
+        !checkdate(
+            (int) substr($startDate, 5, 2),
+            (int) substr($startDate, 8, 2),
+            (int) substr($startDate, 0, 4)
+        )
+    )
+) {
     $startDate = "";
 }
 
-if ($endDate !== "" && !preg_match($datePattern, $endDate)) {
+if (
+    $endDate !== "" &&
+    (
+        !preg_match($datePattern, $endDate) ||
+        !checkdate(
+            (int) substr($endDate, 5, 2),
+            (int) substr($endDate, 8, 2),
+            (int) substr($endDate, 0, 4)
+        )
+    )
+) {
     $endDate = "";
 }
 
-if ($startDate !== "" && $endDate !== "" && $startDate > $endDate) {
+/* Swap dates if the start date is later than the end date */
+
+if (
+    $startDate !== "" &&
+    $endDate !== "" &&
+    $startDate > $endDate
+) {
     [$startDate, $endDate] = [$endDate, $startDate];
 }
+
+/* Limit search input length */
+
+$searchQuery = mb_substr($searchQuery, 0, 100);
 
 /* =========================================================
    BARANGAY INFORMATION
@@ -158,36 +190,42 @@ if (
    before counts and latest report dates are calculated.
 ========================================================= */
 
-// Conditions shared by queries that select individual reports.
+// Base condition: only show reports belonging to the
+// logged-in administrator's barangay.
 $conditions = ["r.barangayID = ?"];
 $types = "s";
 $params = [$barangayID];
 
+// Start date
 if ($startDate !== "") {
     $conditions[] = "r.dateReported >= ?";
     $types .= "s";
     $params[] = $startDate . " 00:00:00";
 }
 
+// End date: include the entire selected day.
 if ($endDate !== "") {
     $conditions[] = "r.dateReported < DATE_ADD(?, INTERVAL 1 DAY)";
     $types .= "s";
     $params[] = $endDate;
 }
 
+// Category
 if ($selectedCategory !== "") {
     $conditions[] = "r.categoryID = ?";
     $types .= "s";
     $params[] = $selectedCategory;
 }
 
+// Status
 if ($selectedStatus !== "") {
     $conditions[] = "r.statusID = ?";
     $types .= "s";
     $params[] = $selectedStatus;
 }
 
-// Search the database instead of filtering only the visible HTML rows.
+// Search across category, location, title, description,
+// and report ID.
 if ($searchQuery !== "") {
     $conditions[] = "(
         EXISTS (
@@ -211,19 +249,21 @@ if ($searchQuery !== "") {
 
     $types .= "sssss";
 
-    array_push(
-        $params,
-        $searchLike,
-        $searchLike,
-        $searchLike,
-        $searchLike,
-        $searchLike
-    );
+    $params[] = $searchLike;
+    $params[] = $searchLike;
+    $params[] = $searchLike;
+    $params[] = $searchLike;
+    $params[] = $searchLike;
 }
 
+// Final WHERE clause for queries using these conditions.
 $whereSQL = implode(" AND ", $conditions);
 
-// Keep your existing date, category, and status filter conditions here.
+/* =========================================================
+   FINALIZE FILTER CONDITIONS
+========================================================= */
+
+$whereSQL = implode(" AND ", $conditions);
 
 // ADD THE SEARCH CONDITION HERE
 if ($searchQuery !== "") {
@@ -1149,29 +1189,40 @@ async function loadReportDrawer(categoryID, locationID) {
             locationID: locationID || ""
         });
 
-        const response = await fetch(
-            "reportView.php?" + query.toString(),
-            { cache: "no-store" }
+        const endpoint = new URL(
+            "reportView.php",
+            window.location.href
         );
 
-        if (!response.ok) {
-            throw new Error("Unable to load report details.");
-        }
+        endpoint.search = query.toString();
 
-        const html = await response.text();
-        reportDrawerContent.innerHTML = html;
-
-        reportDrawerContent.querySelectorAll("img[src]").forEach(img => {
-            const originalSrc = img.getAttribute("src") || "";
-
-            const match = originalSrc.match(
-                /^(?:\.\.?\/)*uploads\/reports\/(.+)$/i
-            );
-
-            if (match) {
-                img.src = "/citisense/uploads/reports/" + match[1];
+        const response = await fetch(endpoint.href, {
+            method: "GET",
+            cache: "no-store",
+            headers: {
+                "Accept": "text/html"
             }
         });
+
+        const html = await response.text();
+
+        console.log("HTTP status:", response.status);
+        console.log("Content type:", response.headers.get("content-type"));
+        console.log("Response HTML:", html);
+
+        if (!response.ok) {
+            throw new Error(
+                `Unable to load report details (HTTP ${response.status}).`
+            );
+        }
+
+        if (!html.trim()) {
+            throw new Error(
+                "The report details page returned an empty response."
+            );
+        }
+
+        reportDrawerContent.innerHTML = html;
 
         if (typeof initializeReportDrawer === "function") {
             initializeReportDrawer();
@@ -1180,10 +1231,13 @@ async function loadReportDrawer(categoryID, locationID) {
         return true;
 
     } catch (error) {
+        console.error("Report drawer error:", error);
+
         reportDrawerContent.innerHTML = `
             <div class="report-view-error">
                 <i class="bi bi-exclamation-circle"></i>
                 <p>Unable to load report details.</p>
+                <small>${reportsSafeMessage(error.message)}</small>
             </div>
         `;
 
@@ -1824,6 +1878,7 @@ function loadReportStatusHistory(reportID) {
 
     historyContainer.appendChild(matchingTemplate.cloneNode(true));
 }
+
 </script>
 
 </body>

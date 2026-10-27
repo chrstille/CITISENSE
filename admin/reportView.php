@@ -1,281 +1,32 @@
 <?php
 session_start();
 
-if (
-    empty($_SESSION["admin_id"]) ||
-    empty($_SESSION["barangay_id"])
-) {
-    header("Location: login.php");
-    exit;
+if (empty($_SESSION["admin_id"]) || empty($_SESSION["barangay_id"])) {
+    http_response_code(401);
+    exit("Unauthorized.");
 }
 
 require_once __DIR__ . "/../config/database.php";
 
 $barangayID = (string) $_SESSION["barangay_id"];
+$categoryID = trim((string) ($_GET["categoryID"] ?? ""));
+$locationID = trim((string) ($_GET["locationID"] ?? ""));
 
-/* =========================================================
-   BARANGAY INFORMATION
-========================================================= */
-
-$stmt = $conn->prepare(
-    "SELECT barangayName
-     FROM barangay
-     WHERE barangayID = ?
-     LIMIT 1"
-);
-
-$stmt->bind_param("s", $barangayID);
-$stmt->execute();
-
-$barangayData = $stmt->get_result()->fetch_assoc();
-$barangayName = $barangayData["barangayName"] ?? "Unknown Barangay";
-
-$stmt->close();
-
-/* =========================================================
-   REPORT GROUPS
-   Keep one row per required category.
-   The JavaScript filters each report before recalculating
-   the count and latest matching report.
-========================================================= */
-
-$sql = "
-    SELECT
-        c.categoryID,
-        c.categoryName,
-        (
-            SELECT r2.locationID
-            FROM reports r2
-            WHERE r2.categoryID = c.categoryID
-              AND r2.barangayID = ?
-            ORDER BY r2.dateReported DESC, r2.reportID DESC
-            LIMIT 1
-        ) AS locationID,
-        (
-            SELECT l2.address
-            FROM reports r2
-            LEFT JOIN location l2
-                ON l2.locationID = r2.locationID
-            WHERE r2.categoryID = c.categoryID
-              AND r2.barangayID = ?
-            ORDER BY r2.dateReported DESC, r2.reportID DESC
-            LIMIT 1
-        ) AS address,
-        COUNT(DISTINCT r.reportID) AS totalReports,
-        MAX(r.dateReported) AS latestReport,
-        GROUP_CONCAT(
-            CONCAT_WS('~',
-                COALESCE(r.reportID, ''),
-                COALESCE(
-                    DATE_FORMAT(r.dateReported, '%Y-%m-%d %H:%i:%s'),
-                    ''
-                ),
-                COALESCE(s.statusName, ''),
-                COALESCE(r.title, ''),
-                COALESCE(r.description, ''),
-                COALESCE(r.locationID, ''),
-                COALESCE(l.address, '')
-            )
-            SEPARATOR '||'
-        ) AS reportFilterData
-    FROM categories c
-    LEFT JOIN reports r
-        ON r.categoryID = c.categoryID
-        AND r.barangayID = ?
-    LEFT JOIN location l
-        ON r.locationID = l.locationID
-    LEFT JOIN stats s
-        ON r.statusID = s.statusID
-    WHERE LOWER(TRIM(c.categoryName)) IN (
-        'waste accumulation',
-        'potholes',
-        'blocked drainage',
-        'others'
-    )
-    GROUP BY
-        c.categoryID,
-        c.categoryName
-    ORDER BY
-        CASE LOWER(TRIM(c.categoryName))
-            WHEN 'waste accumulation' THEN 1
-            WHEN 'potholes' THEN 2
-            WHEN 'blocked drainage' THEN 3
-            WHEN 'others' THEN 4
-            ELSE 5
-        END,
-        CASE WHEN MAX(r.dateReported) IS NULL THEN 1 ELSE 0 END,
-        latestReport DESC,
-        c.categoryName ASC
-";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param(
-    "sss",
-    $barangayID,
-    $barangayID,
-    $barangayID
-);
-$stmt->execute();
-
-$reportGroups = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
-$stmt->close();
-
-/* =========================================================
-   TOTAL REPORT SUBMISSIONS
-========================================================= */
-
-$stmt = $conn->prepare(
-    "SELECT COUNT(reportID) AS totalReports
-     FROM reports
-     WHERE barangayID = ?"
-);
-
-$stmt->bind_param("s", $barangayID);
-$stmt->execute();
-
-$totalData = $stmt->get_result()->fetch_assoc();
-$totalReports = (int) ($totalData["totalReports"] ?? 0);
-
-$stmt->close();
-
-/* =========================================================
-   STATUS COUNTS
-========================================================= */
-
-$sql = "
-    SELECT
-        s.statusID,
-        s.statusName,
-        COUNT(r.reportID) AS reportCount
-    FROM stats s
-    LEFT JOIN reports r
-        ON r.statusID = s.statusID
-        AND r.barangayID = ?
-    WHERE s.statusID IN (
-        'STAT001',
-        'STAT002',
-        'STAT003',
-        'STAT004'
-    )
-    GROUP BY
-        s.statusID,
-        s.statusName
-";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $barangayID);
-$stmt->execute();
-
-$statusResult = $stmt->get_result();
-
-$statusCounts = [
-    "Pending" => 0,
-    "In Progress" => 0,
-    "Overdue" => 0,
-    "Resolved" => 0
-];
-
-while ($row = $statusResult->fetch_assoc()) {
-    $statusName = $row["statusName"];
-
-    if (array_key_exists($statusName, $statusCounts)) {
-        $statusCounts[$statusName] = (int) $row["reportCount"];
-    }
-}
-
-$stmt->close();
-
-/* =========================================================
-   STATUS PERCENTAGES
-========================================================= */
-
-$pendingPercent = 0;
-$inProgressPercent = 0;
-$overduePercent = 0;
-$resolvedPercent = 0;
-
-if ($totalReports > 0) {
-    $pendingPercent = round(
-        $statusCounts["Pending"] / $totalReports * 100
-    );
-
-    $inProgressPercent = round(
-        $statusCounts["In Progress"] / $totalReports * 100
-    );
-
-    $overduePercent = round(
-        $statusCounts["Overdue"] / $totalReports * 100
-    );
-
-    $resolvedPercent = round(
-        $statusCounts["Resolved"] / $totalReports * 100
-    );
+if (
+    $categoryID === "" ||
+    $locationID === "" ||
+    strlen($categoryID) > 50 ||
+    strlen($locationID) > 50
+) {
+    http_response_code(400);
+    exit("Invalid report selection.");
 }
 
 /* =========================================================
-   RECENT REPORT
+   HELPER FUNCTIONS
 ========================================================= */
 
-$sql = "
-    SELECT
-        r.reportID,
-        r.title,
-        r.description,
-        r.dateReported,
-        c.categoryName,
-        l.address,
-        u.firstName,
-        u.lastName
-    FROM reports r
-    INNER JOIN categories c
-        ON r.categoryID = c.categoryID
-    INNER JOIN location l
-        ON r.locationID = l.locationID
-    INNER JOIN users u
-        ON r.userID = u.userID
-    WHERE r.barangayID = ?
-    ORDER BY r.dateReported DESC
-    LIMIT 1
-";
-
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $barangayID);
-$stmt->execute();
-
-$recentReport = $stmt->get_result()->fetch_assoc();
-
-$stmt->close();
-
-/* =========================================================
-   UNREAD ADMIN NOTIFICATIONS
-========================================================= */
-
-$stmt = $conn->prepare(
-    "SELECT COUNT(*) AS unreadNotifications
-     FROM notification
-     WHERE userID = ?
-     AND isRead = FALSE"
-);
-
-$adminID = (string) $_SESSION["admin_id"];
-
-$stmt->bind_param("s", $adminID);
-$stmt->execute();
-
-$notificationData = $stmt->get_result()->fetch_assoc();
-
-$unreadNotifications = (int) (
-    $notificationData["unreadNotifications"] ?? 0
-);
-
-$stmt->close();
-
-/* =========================================================
-   HTML ESCAPING
-========================================================= */
-
-function reportsEscape($value): string
+function rvEscape($value): string
 {
     return htmlspecialchars(
         (string) ($value ?? ""),
@@ -283,501 +34,1537 @@ function reportsEscape($value): string
         "UTF-8"
     );
 }
-?>
 
-        if (!response.ok) {
-            throw new Error("Unable to load report details.");
-        }
-
-        const html = await response.text();
-
-        reportDrawerContent.innerHTML = html;
-
-        // Resolve report images against the CitiSense project root.
-        reportDrawerContent.querySelectorAll("img[src]").forEach(function (img) {
-            const originalSrc = img.getAttribute("src") || "";
-            const match = originalSrc.match(/^(?:\.?\.?\/)*uploads\/reports\/(.+)$/i);
-
-            if (match) {
-                img.src = "/citisense/uploads/reports/" + match[1];
-            }
-        });
-
-        initializeReportDrawer();
-
-        return true;
-
-    } catch (error) {
-        reportDrawerContent.innerHTML = `
-            <div class="report-view-error">
-                <i class="bi bi-exclamation-circle"></i>
-                <p>Unable to load report details.</p>
-            </div>
-        `;
-
-        showReportToast(
-            error.message || "Unable to load report details.",
-            true
-        );
-
-        return false;
-    }
-}
-
-/* =========================================================
-   OPEN REPORT GROUP
-========================================================= */
-
-document.querySelectorAll(".view-report-btn").forEach(button => {
-    button.addEventListener("click", async function () {
-        activeManageCategoryID = "";
-        activeOriginalID = "";
-        detailReturnScreen = null;
-
-        openReportDrawer();
-
-        const loaded = await loadReportDrawer(
-            this.dataset.categoryId,
-            this.dataset.locationId
-        );
-
-        if (loaded) {
-            showGroupScreen();
-        }
-    });
-});
-
-reportDrawerOverlay.addEventListener("click", closeReportDrawer);
-
-/* =========================================================
-   SCREEN NAVIGATION
-========================================================= */
-
-function getReportRoot() {
-    return reportDrawerContent.querySelector(
-        ".report-view-content"
-    );
-}
-
-function hideAllReportScreens(root) {
-    root.querySelectorAll(
-        "#reportGroupScreen, " +
-        "#manageCategoriesScreen, " +
-        ".manage-category-screen, " +
-        ".manage-original-screen, " +
-        "#individualReportScreen"
-    ).forEach(screen => {
-        screen.hidden = true;
-    });
-}
-
-function showReportScreen(screen) {
-    const root = getReportRoot();
-
-    if (!root || !screen) {
-        return;
-    }
-
-    hideAllReportScreens(root);
-
-    screen.hidden = false;
-
-    reportDrawer.scrollTop = 0;
-}
-
-function showGroupScreen() {
-    const root = getReportRoot();
-
-    if (!root) {
-        return;
-    }
-
-    const screen = root.querySelector("#reportGroupScreen");
-
-    if (screen) {
-        activeManageCategoryID = "";
-        activeOriginalID = "";
-        detailReturnScreen = null;
-
-        showReportScreen(screen);
-    }
-}
-
-function showManageCategories() {
-    const root = getReportRoot();
-
-    if (!root) {
-        return;
-    }
-
-    activeOriginalID = "";
-
-    showReportScreen(
-        root.querySelector("#manageCategoriesScreen")
-    );
-}
-
-function showManageCategory(categoryID) {
-    const root = getReportRoot();
-
-    if (!root) {
-        return;
-    }
-
-    const screen = Array.from(
-        root.querySelectorAll(".manage-category-screen")
-    ).find(item =>
-        item.dataset.categoryScreen === categoryID
-    );
-
-    if (!screen) {
-        return;
-    }
-
-    activeManageCategoryID = categoryID;
-    activeOriginalID = "";
-
-    showReportScreen(screen);
-}
-
-function showManageOriginal(reportID) {
-    const root = getReportRoot();
-
-    if (!root) {
-        return;
-    }
-
-    const screen = Array.from(
-        root.querySelectorAll(".manage-original-screen")
-    ).find(item =>
-        item.dataset.originalScreen === reportID
-    );
-
-    if (!screen) {
-        return;
-    }
-
-    activeOriginalID = reportID;
-    activeManageCategoryID = screen.dataset.parentCategory || "";
-
-    showReportScreen(screen);
-}
-
-/* =========================================================
-   DATE FORMATTING
-========================================================= */
-
-function formatReportTimeline(value) {
-    if (!value) {
+function rvDate(
+    $value,
+    string $format = "M j, Y g:i A"
+): string {
+    if (
+        !$value ||
+        strtotime((string) $value) === false
+    ) {
         return "";
     }
 
-    const normalizedValue = value.replace(" ", "T");
-    const date = new Date(normalizedValue);
+    return date(
+        $format,
+        strtotime((string) $value)
+    );
+}
 
-    if (Number.isNaN(date.getTime())) {
-        return value;
+function rvStatusClass($status): string
+{
+    return trim(
+        preg_replace(
+            "/[^a-z0-9]+/",
+            "-",
+            strtolower((string) $status)
+        ),
+        "-"
+    );
+}
+
+function rvOverdueLabel($timeline): string
+{
+    if (
+        !$timeline ||
+        strtotime((string) $timeline) === false
+    ) {
+        return "Overdue";
     }
 
-    return date.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true
-    });
+    $seconds = time() - strtotime((string) $timeline);
+
+    if ($seconds < 86400) {
+        return "Overdue · Today";
+    }
+
+    $days = (int) floor($seconds / 86400);
+
+    return "Overdue · " . $days .
+        ($days === 1 ? " day" : " days");
 }
 
 /* =========================================================
-   READ-ONLY REPORT DETAILS
+   FETCH REPORTS
 ========================================================= */
 
-function openReadOnlyReport(card) {
-    const root = getReportRoot();
+$sql = "
+    SELECT
+        r.reportID,
+        r.userID,
+        r.categoryID,
+        r.locationID,
+        r.statusID,
+        r.title,
+        r.description,
+        r.dateReported,
+        r.timeline,
 
-    if (!root || !card) {
-        return;
-    }
+        c.categoryName,
+        s.statusName,
+        l.address,
 
-    const detailScreen =
-        root.querySelector("#individualReportScreen");
+        u.firstName,
+        u.lastName,
+        u.email,
+        u.contactNo,
 
-    if (!detailScreen) {
-        return;
-    }
+        (
+            SELECT ri.imagePath
+            FROM reportImages ri
+            WHERE ri.reportID = r.reportID
+            ORDER BY ri.uploadedAt ASC
+            LIMIT 1
+        ) AS imagePath
 
-    detailReturnScreen = Array.from(
-        root.querySelectorAll(
-            "#reportGroupScreen, .manage-category-screen"
-        )
-    ).find(screen => !screen.hidden) || null;
+    FROM reports r
 
-    const fields = {
-        detailCategory: card.dataset.category,
-        detailResident: card.dataset.resident,
-        detailEmail: card.dataset.email,
-        detailContact: card.dataset.contact,
-        detailReportID: card.dataset.reportId,
-        detailLocation: card.dataset.location,
-        detailDescription: card.dataset.description,
-        detailDate: formatReportTimeline(card.dataset.date),
-        detailStatus: card.dataset.statusName
-    };
+    INNER JOIN categories c
+        ON c.categoryID = r.categoryID
 
-    Object.entries(fields).forEach(([id, value]) => {
-        const element = root.querySelector("#" + id);
+    INNER JOIN stats s
+        ON s.statusID = r.statusID
 
-        if (element) {
-            element.textContent = value || "Not provided";
-        }
-    });
+    INNER JOIN location l
+        ON l.locationID = r.locationID
 
-    /* TIMELINE */
+    INNER JOIN users u
+        ON u.userID = r.userID
 
-    const timelineContainer =
-        root.querySelector("#detailTimelineContainer");
+    WHERE r.barangayID = ?
 
-    const timelineText =
-        root.querySelector("#detailTimeline");
+    ORDER BY
+        r.dateReported ASC,
+        r.reportID ASC
+";
 
-    if (timelineContainer && timelineText) {
-        const timeline = card.dataset.timeline || "";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $barangayID);
+$stmt->execute();
 
-        timelineText.textContent =
-            formatReportTimeline(timeline);
+$allReports = $stmt
+    ->get_result()
+    ->fetch_all(MYSQLI_ASSOC);
 
-        timelineContainer.hidden = !timeline;
-    }
-
-    /* REPORT IMAGE */
-
-    const imageContainer =
-        root.querySelector("#detailImageContainer");
-
-    const image = root.querySelector("#detailImage");
-
-    if (imageContainer && image) {
-        if (card.dataset.image) {
-            image.src = card.dataset.image;
-            imageContainer.hidden = false;
-        } else {
-            image.removeAttribute("src");
-            imageContainer.hidden = true;
-        }
-    }
-
-    /* STATUS HISTORY */
-
-    const historyTarget =
-        root.querySelector("#detailStatusHistory");
-
-    const reportID = card.dataset.reportId;
-
-    const historyTemplate = Array.from(
-        root.querySelectorAll("[data-history-report-id]")
-    ).find(node =>
-        node.dataset.historyReportId === reportID
-    );
-
-    if (historyTarget) {
-        historyTarget.replaceChildren();
-
-        if (historyTemplate) {
-            const clonedNodes = Array.from(
-                historyTemplate.childNodes
-            ).map(node => node.cloneNode(true));
-
-            historyTarget.append(...clonedNodes);
-        } else {
-            const emptyMessage = document.createElement("p");
-
-            emptyMessage.className = "manage-empty";
-
-            emptyMessage.textContent =
-                "No status history recorded for this report.";
-
-            historyTarget.appendChild(emptyMessage);
-        }
-    }
-
-    showReportScreen(detailScreen);
-}
+$stmt->close();
 
 /* =========================================================
-   DRAWER CLICK HANDLERS
+   FETCH ACTUAL RESOLUTION DATES
+
+   Resolution dates are taken from reportHistory.
+
+   No fabricated resolution timestamps.
 ========================================================= */
 
-document.addEventListener("click", function (event) {
-    const root = event.target.closest(".report-view-content");
+$resolvedAt = [];
 
-    if (!root) {
-        return;
+$sql = "
+    SELECT
+        h.reportID,
+        MIN(h.dateChanged) AS resolvedAt
+
+    FROM reportHistory h
+
+    INNER JOIN reports r
+        ON r.reportID = h.reportID
+
+    WHERE
+        r.barangayID = ?
+        AND h.statusID = 'STAT003'
+
+    GROUP BY h.reportID
+";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $barangayID);
+$stmt->execute();
+
+$result = $stmt->get_result();
+
+while ($row = $result->fetch_assoc()) {
+    $resolvedAt[$row["reportID"]] = $row["resolvedAt"];
+}
+
+$stmt->close();
+
+/* =========================================================
+   ORIGINAL AND DUPLICATE CLASSIFICATION
+
+   Same:
+   - Barangay
+   - Category
+   - Location
+
+   Original:
+   Earliest submitted report in a reporting cycle.
+
+   Duplicate:
+   Later submissions while that cycle remains open.
+
+   When the Original is Resolved:
+   Hide the Original and all its duplicates from
+   Manage Reports.
+
+   A submission after the recorded resolution date
+   starts a new reporting cycle.
+========================================================= */
+
+$reportBuckets = [];
+
+foreach ($allReports as $report) {
+
+    $key =
+        $report["categoryID"] . "\0" .
+        $report["locationID"];
+
+    if (!isset($reportBuckets[$key])) {
+        $reportBuckets[$key] = [];
     }
 
-    /* MANAGE REPORTS BUTTON */
+    $reportBuckets[$key][] = $report;
+}
 
-    if (event.target.closest("#manageGroupReports")) {
-        showManageCategories();
-        return;
-    }
+$cyclesByCategory = [];
+$originalReportIDs = [];
 
-    /* CATEGORY BUTTON */
+foreach ($reportBuckets as $bucket) {
 
-    const categoryButton = event.target.closest(
-        "[data-manage-category]"
-    );
+    usort($bucket, function ($a, $b) {
 
-    if (categoryButton) {
-        showManageCategory(
-            categoryButton.dataset.manageCategory
+        $comparison = strcmp(
+            $a["dateReported"],
+            $b["dateReported"]
         );
-        return;
-    }
 
-    /* BACK BUTTONS */
-
-    const backButton = event.target.closest("[data-manage-back]");
-
-    if (backButton) {
-        const destination = backButton.dataset.manageBack;
-
-        if (destination === "group") {
-            showGroupScreen();
-        } else if (destination === "categories") {
-            showManageCategories();
-        } else if (destination === "category") {
-            showManageCategory(
-                backButton.dataset.categoryId
+        return $comparison !== 0
+            ? $comparison
+            : strcmp(
+                $a["reportID"],
+                $b["reportID"]
             );
-        }
+    });
 
-        return;
-    }
+    $cycles = [];
 
-    /* BACK FROM REPORT DETAILS */
+    $currentCycle = null;
+    $currentResolvedAt = null;
 
-    if (event.target.closest("#backToReportList")) {
-        if (detailReturnScreen) {
-            showReportScreen(detailReturnScreen);
+    foreach ($bucket as $report) {
+
+        $startNew =
+            $currentCycle === null ||
+            (
+                $currentResolvedAt !== null &&
+                strcmp(
+                    $report["dateReported"],
+                    $currentResolvedAt
+                ) > 0
+            );
+
+        if ($startNew) {
+
+            if ($currentCycle !== null) {
+                $cycles[] = $currentCycle;
+            }
+
+            $currentCycle = [
+                "original" => $report,
+                "duplicates" => []
+            ];
+
+            $originalReportIDs[
+                $report["reportID"]
+            ] = true;
+
+            $currentResolvedAt =
+                $resolvedAt[$report["reportID"]] ?? null;
+
         } else {
-            showGroupScreen();
+
+            $currentCycle["duplicates"][] = $report;
+        }
+    }
+
+    if ($currentCycle !== null) {
+        $cycles[] = $currentCycle;
+    }
+
+    foreach ($cycles as $cycle) {
+
+        $original = $cycle["original"];
+
+        /*
+         * Resolved Originals and their duplicates
+         * are excluded from Manage Reports.
+         */
+
+        if ($original["statusID"] === "STAT003") {
+            continue;
         }
 
-        return;
-    }
+        $catID = $original["categoryID"];
 
-    /* REPORT CARDS */
-
-    const card = event.target.closest(".duplicate-report-card");
-
-    if (card) {
-        if (
-            card.dataset.manage === "1" &&
-            card.dataset.original === "0"
-        ) {
-            return;
+        if (!isset($cyclesByCategory[$catID])) {
+            $cyclesByCategory[$catID] = [];
         }
 
-        if (
-            card.dataset.manage === "1" &&
-            card.dataset.original === "1"
-        ) {
-            showManageOriginal(card.dataset.reportId);
-        } else {
-            openReadOnlyReport(card);
-        }
-
-        return;
-    }
-
-    /* CLOSE BUTTON */
-
-    if (
-        event.target.closest(
-            "[data-close-report-view], #closeReportView"
-        )
-    ) {
-        closeReportDrawer();
-    }
-});
-
-/* =========================================================
-   KEYBOARD SUPPORT
-========================================================= */
-
-document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") {
-        closeReportDrawer();
-        hideReportToast();
-
-        if (exportModal) {
-            exportModal.hidden = true;
-        }
-
-        return;
-    }
-
-    if (event.key !== "Enter" && event.key !== " ") {
-        return;
-    }
-
-    const card = event.target.closest(".duplicate-report-card");
-
-    if (!card) {
-        return;
-    }
-
-    if (
-        card.dataset.manage === "1" &&
-        card.dataset.original === "0"
-    ) {
-        return;
-    }
-
-    event.preventDefault();
-    card.click();
-});
-
-/* =========================================================
-   REFRESH ORIGINAL REPORT MANAGEMENT SCREEN
-   Used after saving a timeline.
-========================================================= */
-
-async function refreshManageOriginal(reportID) {
-    const categoryID = activeManageCategoryID;
-    const currentCategory = currentCategoryID;
-    const currentLocation = currentLocationID;
-
-    const loaded = await loadReportDrawer(
-        currentCategory,
-        currentLocation
-    );
-
-    if (!loaded) {
-        return;
-    }
-
-    if (categoryID) {
-        showManageCategory(categoryID);
-    }
-
-    if (reportID) {
-        const root = getReportRoot();
-
-        if (!root) {
-            return;
-        }
-
-        const originalScreen = Array.from(
-            root.querySelectorAll(".manage-original-screen")
-        ).find(screen =>
-            screen.dataset.originalScreen === reportID
-        );
-
-        if (originalScreen) {
-            showManageOriginal(reportID);
-        }
+        $cyclesByCategory[$catID][] = [
+            "originalID" => $original["reportID"],
+            "categoryID" => $catID,
+            "categoryName" => $original["categoryName"],
+            "locationID" => $original["locationID"],
+            "address" => $original["address"],
+            "original" => $original,
+            "duplicates" => $cycle["duplicates"]
+        ];
     }
 }
+
+/* =========================================================
+   FETCH ALL CATEGORIES
+========================================================= */
+
+$stmt = $conn->prepare(
+    "SELECT categoryID, categoryName
+     FROM categories
+     ORDER BY categoryID ASC"
+);
+
+$stmt->execute();
+
+$categories = $stmt
+    ->get_result()
+    ->fetch_all(MYSQLI_ASSOC);
+
+$stmt->close();
+
+/* =========================================================
+   FETCH STATUS HISTORY
+
+   Use actual database history only.
+
+   Do not generate artificial Pending,
+   In Progress, Overdue, or Resolved entries.
+========================================================= */
+
+$historyByReport = [];
+
+$sql = "
+    SELECT
+        h.historyID,
+        h.reportID,
+        h.statusID,
+        h.remarks,
+        h.dateChanged,
+
+        s.statusName,
+
+        u.firstName,
+        u.lastName
+
+    FROM reportHistory h
+
+    INNER JOIN reports r
+        ON r.reportID = h.reportID
+
+    INNER JOIN stats s
+        ON s.statusID = h.statusID
+
+    LEFT JOIN users u
+        ON u.userID = h.userID
+
+    WHERE r.barangayID = ?
+
+    ORDER BY
+        h.dateChanged ASC,
+        h.historyID ASC
+";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $barangayID);
+$stmt->execute();
+
+$historyRows = $stmt
+    ->get_result()
+    ->fetch_all(MYSQLI_ASSOC);
+
+$stmt->close();
+
+foreach ($historyRows as $row) {
+
+    $reportID = $row["reportID"];
+
+    if (!isset($historyByReport[$reportID])) {
+        $historyByReport[$reportID] = [];
+    }
+
+    $historyByReport[$reportID][] = $row;
+}
+
+/* =========================================================
+   SELECT REPORTS FOR REGULAR REPORT VIEW
+
+   Resolved reports remain visible here.
+
+   Only Manage Reports excludes closed cycles.
+========================================================= */
+
+$selectedReports = [];
+
+foreach ($allReports as $report) {
+
+    if (
+        (string) $report["categoryID"] === $categoryID &&
+        (string) $report["locationID"] === $locationID
+    ) {
+        $selectedReports[] = $report;
+    }
+}
+
+$categoryName = "";
+$address = "";
+
+// Use the selected reports when reports exist.
+if (!empty($selectedReports)) {
+    $categoryName = $selectedReports[0]["categoryName"];
+    $address = $selectedReports[0]["address"];
+} else {
+    // Get the category name even if no reports have been submitted.
+    $stmt = $conn->prepare(
+        "SELECT categoryName
+         FROM categories
+         WHERE categoryID = ?
+         LIMIT 1"
+    );
+
+    $stmt->bind_param("s", $categoryID);
+    $stmt->execute();
+
+    $categoryResult = $stmt->get_result()->fetch_assoc();
+
+    if ($categoryResult) {
+        $categoryName = $categoryResult["categoryName"];
+    }
+
+    $stmt->close();
+
+    // Get the selected location's address.
+    $stmt = $conn->prepare(
+        "SELECT address
+         FROM location
+         WHERE locationID = ?
+         LIMIT 1"
+    );
+
+    $stmt->bind_param("s", $locationID);
+    $stmt->execute();
+
+    $locationResult = $stmt->get_result()->fetch_assoc();
+
+    if ($locationResult) {
+        $address = $locationResult["address"];
+    }
+
+    $stmt->close();
+}
+
+
+/* Overdue first, then newest reports. */
+
+usort($selectedReports, function ($a, $b) {
+
+    $aOverdue =
+        $a["statusID"] === "STAT004" ? 0 : 1;
+
+    $bOverdue =
+        $b["statusID"] === "STAT004" ? 0 : 1;
+
+    if ($aOverdue !== $bOverdue) {
+        return $aOverdue <=> $bOverdue;
+    }
+
+    $comparison = strcmp(
+        $b["dateReported"],
+        $a["dateReported"]
+    );
+
+    return $comparison !== 0
+        ? $comparison
+        : strcmp(
+            $b["reportID"],
+            $a["reportID"]
+        );
+});
+
+$categoryName = $selectedReports[0]["categoryName"];
+$address = $selectedReports[0]["address"];
+
+$statusOrder = [
+    "Overdue",
+    "In Progress",
+    "Pending",
+    "Resolved"
+];
+
+$statuses = array_unique(
+    array_column(
+        $selectedReports,
+        "statusName"
+    )
+);
+
+$groupStatuses = array_values(
+    array_intersect(
+        $statusOrder,
+        $statuses
+    )
+);
+
+/* =========================================================
+   REUSABLE REPORT CARD
+========================================================= */
+
+function rvRenderCard(
+    array $report,
+    bool $isOriginal = false,
+    bool $isManage = false
+): void {
+
+    $reportID = $report["reportID"];
+    $statusName = $report["statusName"];
+
+    $isOverdue =
+        $report["statusID"] === "STAT004";
+
+    $isReadOnlyDuplicate =
+        $isManage && !$isOriginal;
+
+    $residentName = trim(
+        ($report["firstName"] ?? "") . " " .
+        ($report["lastName"] ?? "")
+    );
+
+    $timelineInput = rvDate(
+        $report["timeline"],
+        "Y-m-d\TH:i"
+    );
+
+    $timelineDisplay = rvDate(
+        $report["timeline"]
+    );
+
+    $displayStatus = $isOverdue
+        ? rvOverdueLabel($report["timeline"])
+        : $statusName;
+
+    $classes = "duplicate-report-card";
+
+    if ($isReadOnlyDuplicate) {
+        $classes .= " is-readonly-duplicate";
+    }
+
+    if ($isManage && $isOriginal) {
+        $classes .= " is-original-report";
+    } elseif ($isOverdue) {
+        $classes .= " is-overdue";
+    }
+    ?>
+
+    <article
+        class="<?= rvEscape($classes) ?>"
+
+        data-report-id="<?= rvEscape($reportID) ?>"
+        data-status-id="<?= rvEscape($report["statusID"]) ?>"
+        data-status-name="<?= rvEscape($statusName) ?>"
+
+        data-resident="<?= rvEscape($residentName) ?>"
+        data-email="<?= rvEscape($report["email"]) ?>"
+        data-contact="<?= rvEscape($report["contactNo"]) ?>"
+
+        data-category="<?= rvEscape($report["categoryName"]) ?>"
+        data-location="<?= rvEscape($report["address"]) ?>"
+        data-description="<?= rvEscape($report["description"]) ?>"
+
+        data-timeline="<?= rvEscape($timelineInput) ?>"
+        data-date="<?= rvEscape($report["dateReported"]) ?>"
+        data-image="<?= rvEscape($report["imagePath"]) ?>"
+
+        data-original="<?= $isOriginal ? "1" : "0" ?>"
+        data-manage="<?= $isManage ? "1" : "0" ?>"
+
+        <?php if ($isReadOnlyDuplicate): ?>
+
+            aria-disabled="true"
+            aria-label="Duplicate report <?= rvEscape($reportID) ?>"
+
+        <?php else: ?>
+
+            tabindex="0"
+            role="button"
+
+            aria-label="<?= $isManage
+                ? "Manage original report "
+                : "View report " ?><?= rvEscape($reportID) ?>"
+
+        <?php endif; ?>
+    >
+
+        <div class="duplicate-report-image">
+
+            <?php if (!empty($report["imagePath"])): ?>
+
+                <img
+                    src="<?= rvEscape($report["imagePath"]) ?>"
+                    alt="Resident report attachment"
+                    loading="lazy"
+                >
+
+            <?php else: ?>
+
+                <div class="no-report-image">
+                    <i class="bi bi-image"></i>
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+        <div class="duplicate-report-info">
+
+            <?php if ($isManage): ?>
+
+                <span class="manage-report-type">
+                    <?= $isOriginal
+                        ? "Original Report"
+                        : "Duplicate Report" ?>
+                </span>
+
+            <?php endif; ?>
+
+            <div class="reported-by">
+                Reported by
+                <strong><?= rvEscape($residentName) ?></strong>
+            </div>
+
+            <div class="report-meta">
+
+                <div>
+                    <i class="bi bi-calendar3"></i>
+
+                    <?= rvEscape(
+                        rvDate($report["dateReported"])
+                    ) ?>
+
+                    <span
+                        class="report-card-timeline"
+                        <?= $timelineDisplay === ""
+                            ? "hidden"
+                            : "" ?>
+                    >
+
+                        <span aria-hidden="true">→</span>
+
+                        <span class="report-card-timeline-text">
+                            <?= rvEscape($timelineDisplay) ?>
+                        </span>
+
+                    </span>
+                </div>
+
+                <div>
+                    <i class="bi bi-card-text"></i>
+                    ID: <?= rvEscape($reportID) ?>
+                </div>
+
+                <div>
+                    <i class="bi bi-geo-alt"></i>
+                    <?= rvEscape($report["address"]) ?>
+                </div>
+
+            </div>
+
+            <span
+                class="report-card-status status-<?= rvEscape(
+                    rvStatusClass($statusName)
+                ) ?>"
+            >
+
+                <?php if ($isOverdue): ?>
+                    <i class="bi bi-exclamation-triangle"></i>
+                <?php endif; ?>
+
+                <?= rvEscape($displayStatus) ?>
+
+            </span>
+
+            <?php if (!empty($report["description"])): ?>
+
+                <div class="report-description">
+                    <?= rvEscape($report["description"]) ?>
+                </div>
+
+            <?php endif; ?>
+
+        </div>
+
+        <?php if (!$isReadOnlyDuplicate): ?>
+
+            <span class="report-card-open-hint">
+                <i class="bi bi-chevron-right"></i>
+            </span>
+
+        <?php endif; ?>
+
+    </article>
+
+    <?php
+}
+?>
+
+<!-- ======================================================
+     REPORT VIEW ROOT
+====================================================== -->
+
+<div
+    class="report-view-content"
+    data-category-id="<?= rvEscape($categoryID) ?>"
+    data-location-id="<?= rvEscape($locationID) ?>"
+>
+
+    <!-- ==================================================
+         SCREEN 1: REGULAR REPORT VIEW
+    ================================================== -->
+
+    <section id="reportGroupScreen">
+
+        <header class="report-view-header">
+
+            <div class="report-view-title-section">
+
+                <div class="report-category-icon">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+
+                <div>
+
+                    <h2><?= rvEscape($categoryName) ?></h2>
+
+                    <p>
+                        <i class="bi bi-geo-alt"></i>
+                        <?= rvEscape($address) ?>
+                    </p>
+
+                </div>
+
+            </div>
+
+        </header>
+
+        <div class="report-summary-manage-row">
+
+            <div
+                class="report-summary"
+                id="groupStatusBadges"
+            >
+
+                <?php foreach ($groupStatuses as $status): ?>
+
+                    <span
+                        class="status-badge status-<?= rvEscape(
+                            rvStatusClass($status)
+                        ) ?>"
+                    >
+                        <?= rvEscape($status) ?>
+                    </span>
+
+                <?php endforeach; ?>
+
+            </div>
+
+            <button
+                type="button"
+                class="manage-group-reports-btn"
+                id="manageGroupReports"
+            >
+                <i class="bi bi-grid"></i>
+                Manage Reports
+            </button>
+
+        </div>
+
+        <div
+            class="report-tab-content active"
+            id="duplicatesTab"
+        >
+
+            <div class="duplicate-list">
+
+                <?php if (empty($selectedReports)): ?>
+
+                    <div class="report-empty-state">
+
+                        <div class="report-empty-icon">
+                            <i class="bi bi-inbox"></i>
+                        </div>
+
+                        <h3>No Submitted Reports</h3>
+
+                        <p>
+                            There are currently no submitted reports
+                            for this category and location.
+                        </p>
+
+                    </div>
+
+                <?php else: ?>
+
+                    <?php foreach ($selectedReports as $report): ?>
+
+                        <?php rvRenderCard($report); ?>
+
+                    <?php endforeach; ?>
+
+                <?php endif; ?>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ==================================================
+         SCREEN 2: MANAGE REPORT CATEGORIES
+    ================================================== -->
+
+    <section
+        id="manageCategoriesScreen"
+        class="manage-screen"
+        hidden
+    >
+
+        <button
+            type="button"
+            class="manage-back-button"
+            data-manage-back="group"
+        >
+            Back to Reports
+        </button>
+
+        <h2 class="manage-heading">
+            Manage Reports
+        </h2>
+
+        <p class="manage-subtitle">
+            Select a category to view Original Reports
+            and their duplicates.
+        </p>
+
+        <div class="manage-category-buttons">
+
+            <?php foreach ($categories as $category): ?>
+
+                <button
+                    type="button"
+                    class="manage-category-button"
+                    data-manage-category="<?= rvEscape(
+                        $category["categoryID"]
+                    ) ?>"
+                >
+
+                    <span>
+                        <i class="bi bi-folder2-open"></i>
+                        <?= rvEscape($category["categoryName"]) ?>
+                    </span>
+
+                    <i class="bi bi-chevron-right"></i>
+
+                </button>
+
+            <?php endforeach; ?>
+
+        </div>
+
+    </section>
+
+    <!-- ==================================================
+         SCREEN 3: ORIGINAL AND DUPLICATE REPORTS
+    ================================================== -->
+
+    <?php foreach ($categories as $category): ?>
+
+        <?php
+
+        $catID = $category["categoryID"];
+
+        $categoryCycles =
+            $cyclesByCategory[$catID] ?? [];
+
+        usort($categoryCycles, function ($a, $b) {
+
+            $comparison = strcmp(
+                $b["original"]["dateReported"],
+                $a["original"]["dateReported"]
+            );
+
+            return $comparison !== 0
+                ? $comparison
+                : strcmp(
+                    $b["originalID"],
+                    $a["originalID"]
+                );
+        });
+
+        ?>
+
+        <section
+            class="manage-screen manage-category-screen"
+            data-category-screen="<?= rvEscape($catID) ?>"
+            hidden
+        >
+
+            <button
+                type="button"
+                class="manage-back-button"
+                data-manage-back="categories"
+            >
+                Back to Categories
+            </button>
+
+            <h2 class="manage-heading">
+                <?= rvEscape($category["categoryName"]) ?>
+            </h2>
+
+            <?php if (!$categoryCycles): ?>
+
+                <p class="manage-empty">
+                    No active reports in this category.
+                </p>
+
+            <?php endif; ?>
+
+            <?php foreach ($categoryCycles as $cycle): ?>
+
+                <div class="manage-cycle">
+
+                    <h3 class="manage-cycle-heading">
+
+                        <i class="bi bi-geo-alt"></i>
+
+                        <?= rvEscape($cycle["address"]) ?>
+
+                        —
+
+                        <?= rvEscape(
+                            date(
+                                "F Y",
+                                strtotime(
+                                    $cycle["original"]["dateReported"]
+                                )
+                            )
+                        ) ?>
+
+                    </h3>
+
+                    <?php
+                    rvRenderCard(
+                        $cycle["original"],
+                        true,
+                        true
+                    );
+                    ?>
+
+                    <div class="manage-duplicates-heading">
+
+                        Duplicate Reports
+
+                        (<?= count($cycle["duplicates"]) ?>)
+
+                    </div>
+
+                    <?php if (!$cycle["duplicates"]): ?>
+
+                        <p class="manage-empty">
+                            No duplicate submissions yet.
+                        </p>
+
+                    <?php else: ?>
+
+                        <div class="duplicate-list">
+
+                            <?php foreach (
+                                $cycle["duplicates"] as $duplicate
+                            ): ?>
+
+                                <?php
+                                rvRenderCard(
+                                    $duplicate,
+                                    false,
+                                    true
+                                );
+                                ?>
+
+                            <?php endforeach; ?>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                </div>
+
+            <?php endforeach; ?>
+
+        </section>
+
+    <?php endforeach; ?>
+
+    <!-- ==================================================
+         SCREEN 4: MANAGE ORIGINAL REPORT
+
+         No Status History here.
+    ================================================== -->
+
+    <?php foreach (
+        $cyclesByCategory as $catID => $categoryCycles
+    ): ?>
+
+        <?php foreach ($categoryCycles as $cycle): ?>
+
+            <?php
+
+            $original = $cycle["original"];
+            $originalID = $original["reportID"];
+            $statusID = $original["statusID"];
+
+            $isOverdue =
+                $statusID === "STAT004";
+
+            $canSetTimeline = in_array(
+                $statusID,
+                ["STAT002", "STAT004"],
+                true
+            );
+
+            ?>
+
+            <section
+                class="manage-screen manage-original-screen"
+
+                data-original-screen="<?= rvEscape($originalID) ?>"
+                data-parent-category="<?= rvEscape($catID) ?>"
+
+                hidden
+            >
+
+                <button
+                    type="button"
+                    class="manage-back-button"
+                    data-manage-back="category"
+                    data-category-id="<?= rvEscape($catID) ?>"
+                >
+                    Back to Original Reports
+                </button>
+
+                <h2 class="manage-heading">
+                    Manage Original Report
+                </h2>
+
+                <?php rvRenderCard($original, true, true); ?>
+
+                <!-- UPDATE REPORT STATUS -->
+
+                <div class="manage-edit-panel">
+
+                    <h3>
+                        <i class="bi bi-arrow-repeat"></i>
+                        Update Report Status
+                    </h3>
+
+                    <div class="manage-field">
+
+                        <label>Report Status</label>
+
+                        <select
+                            class="manage-status-select"
+                            data-report-id="<?= rvEscape($originalID) ?>"
+                        >
+
+                            <option
+                                value="STAT001"
+
+                                <?= $statusID === "STAT001"
+                                    ? "selected"
+                                    : "" ?>
+
+                                <?= $statusID !== "STAT001"
+                                    ? "disabled"
+                                    : "" ?>
+                            >
+                                Pending
+                            </option>
+
+                            <option
+                                value="STAT002"
+
+                                <?= $statusID === "STAT002"
+                                    ? "selected"
+                                    : "" ?>
+
+                                <?= $statusID !== "STAT001" &&
+                                    $statusID !== "STAT002"
+                                    ? "disabled"
+                                    : "" ?>
+                            >
+                                In Progress
+                            </option>
+
+                            <option value="STAT003">
+                                Resolved
+                            </option>
+
+                            <?php if ($isOverdue): ?>
+
+                                <option
+                                    value="STAT004"
+                                    selected
+                                >
+                                    Overdue
+                                </option>
+
+                            <?php endif; ?>
+
+                        </select>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        class="manage-save-button"
+                        data-save-original-status="<?= rvEscape(
+                            $originalID
+                        ) ?>"
+                    >
+                        Update Status
+                    </button>
+
+                </div>
+
+                <!-- REPORT TIMELINE -->
+
+                <div class="manage-edit-panel">
+
+                    <h3>
+                        <i class="bi bi-calendar-check"></i>
+                        Report Timeline
+                    </h3>
+
+                    <?php if ($canSetTimeline): ?>
+
+                        <form
+                            class="manage-timeline-form"
+                            data-report-id="<?= rvEscape($originalID) ?>"
+                        >
+
+                            <div class="manage-field">
+
+                                <label>
+                                    Expected Completion Date and Time
+                                </label>
+
+                                <input
+                                    type="datetime-local"
+                                    name="timeline"
+
+                                    value="<?= rvEscape(
+                                        rvDate(
+                                            $original["timeline"],
+                                            "Y-m-d\TH:i"
+                                        )
+                                    ) ?>"
+
+                                    required
+                                >
+
+                            </div>
+
+                            <button
+                                type="submit"
+                                class="manage-save-button"
+                            >
+
+                                <?= $isOverdue
+                                    ? "Save Revised Timeline"
+                                    : "Save Timeline" ?>
+
+                            </button>
+
+                        </form>
+
+                    <?php else: ?>
+
+                        <p class="manage-empty">
+                            Accept the report by changing its status
+                            to In Progress before setting a timeline.
+                        </p>
+
+                    <?php endif; ?>
+
+                </div>
+
+            </section>
+
+        <?php endforeach; ?>
+
+    <?php endforeach; ?>
+
+        <!-- ==================================================
+         ACTUAL STATUS HISTORY DATA
+
+         Stored in hidden templates so the existing
+         drawer JavaScript can display the selected
+         report's own history.
+
+         This does not create fake history entries.
+    ================================================== -->
+
+    <!-- ======================================================
+         REPORT STATUS HISTORY DATA
+
+         Current status comes from reports.statusID.
+         Previous status changes come from reportHistory.
+    ====================================================== -->
+
+    <div id="reportHistoryTemplates" hidden>
+
+        <?php foreach ($allReports as $historyReport): ?>
+
+            <?php
+            $historyReportID = $historyReport["reportID"];
+
+            $currentStatusID = $historyReport["statusID"];
+            $currentStatusName = $historyReport["statusName"];
+
+            $entries = $historyByReport[$historyReportID] ?? [];
+
+            $hasCurrentStatusInHistory = false;
+
+            if (!empty($entries)) {
+                $lastEntry = end($entries);
+
+                $hasCurrentStatusInHistory =
+                    $lastEntry["statusID"] === $currentStatusID;
+
+                reset($entries);
+            }
+            ?>
+
+            <div
+                data-history-report-id="<?= rvEscape(
+                    $historyReportID
+                ) ?>"
+            >
+
+                <?php if (empty($entries)): ?>
+
+                    <!-- CURRENT STATUS FROM reports.statusID -->
+
+                    <div class="manage-history-item">
+
+                        <strong>
+                            <span
+                                class="status-badge status-<?= rvEscape(
+                                    rvStatusClass($currentStatusName)
+                                ) ?>"
+                            >
+                                <?= rvEscape($currentStatusName) ?>
+                            </span>
+                        </strong>
+
+                        <small>
+                            Current Report Status
+                        </small>
+
+                    </div>
+
+                <?php else: ?>
+
+                    <!-- ACTUAL STATUS CHANGE HISTORY -->
+
+                    <?php foreach ($entries as $entry): ?>
+
+                        <?php
+                        $changedBy = trim(
+                            ($entry["firstName"] ?? "") . " " .
+                            ($entry["lastName"] ?? "")
+                        );
+
+                        if ($changedBy === "") {
+                            $changedBy = "User unavailable";
+                        }
+                        ?>
+
+                        <div class="manage-history-item">
+
+                            <strong>
+                                <span
+                                    class="status-badge status-<?= rvEscape(
+                                        rvStatusClass(
+                                            $entry["statusName"]
+                                        )
+                                    ) ?>"
+                                >
+                                    <?= rvEscape(
+                                        $entry["statusName"]
+                                    ) ?>
+                                </span>
+                            </strong>
+
+                            <small>
+                                <i class="bi bi-calendar3"></i>
+
+                                <?= rvEscape(
+                                    rvDate($entry["dateChanged"])
+                                ) ?>
+
+                                &nbsp;—&nbsp;
+
+                                <i class="bi bi-person"></i>
+
+                                <?= rvEscape($changedBy) ?>
+                            </small>
+
+                            <?php if (
+                                trim(
+                                    (string) ($entry["remarks"] ?? "")
+                                ) !== ""
+                            ): ?>
+
+                                <p>
+                                    <?= rvEscape($entry["remarks"]) ?>
+                                </p>
+
+                            <?php endif; ?>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                    <!-- CURRENT STATUS IF NOT IN LATEST HISTORY -->
+
+                    <?php if (!$hasCurrentStatusInHistory): ?>
+
+                        <div class="manage-history-item">
+
+                            <strong>
+                                <span
+                                    class="status-badge status-<?= rvEscape(
+                                        rvStatusClass($currentStatusName)
+                                    ) ?>"
+                                >
+                                    <?= rvEscape($currentStatusName) ?>
+                                </span>
+                            </strong>
+
+                            <small>
+                                Current Report Status
+                            </small>
+
+                        </div>
+
+                    <?php endif; ?>
+
+                <?php endif; ?>
+
+            </div>
+
+        <?php endforeach; ?>
+
+    </div>
+
+    <!-- ==================================================
+         SCREEN 5: READ-ONLY REPORT DETAILS
+
+         Status History is displayed here.
+    ================================================== -->
+
+    <section
+        id="individualReportScreen"
+        class="individual-report-screen"
+        hidden
+    >
+
+        <header class="individual-report-header">
+
+            <button
+                type="button"
+                id="backToReportList"
+                class="back-report-button"
+            >
+
+                <i class="bi bi-arrow-left"></i>
+                Back to Reports
+
+            </button>
+
+        </header>
+
+        <div class="individual-report-card">
+
+            <!-- REPORT IMAGE -->
+
+            <div
+                class="individual-report-image"
+                id="detailImageContainer"
+                hidden
+            >
+
+                <img
+                    id="detailImage"
+                    src=""
+                    alt="Report attachment"
+                >
+
+            </div>
+
+            <h2>Report Details</h2>
+
+            <h4>
+                <i class="bi bi-file-earmark-text"></i>
+                Report Information
+            </h4>
+
+            <!-- CATEGORY -->
+
+            <div class="individual-report-field">
+
+                <label>Category</label>
+
+                <p id="detailCategory"></p>
+
+            </div>
+
+            <!-- REPORT ID -->
+
+            <div class="individual-report-field">
+
+                <label>Report ID</label>
+
+                <p id="detailReportID"></p>
+
+            </div>
+
+            <!-- LOCATION -->
+
+            <div class="individual-report-field">
+
+                <label>Location</label>
+
+                <p id="detailLocation"></p>
+
+            </div>
+
+            <!-- DESCRIPTION -->
+
+            <div class="individual-report-field">
+
+                <label>Description</label>
+
+                <p
+                    id="detailDescription"
+                    class="individual-report-description"
+                ></p>
+
+            </div>
+
+            <!-- STATUS -->
+
+            <div class="individual-report-field">
+
+                <label>Status</label>
+
+                <p id="detailStatus"></p>
+
+            </div>
+
+            <!-- DATES -->
+
+            <div class="individual-report-section">
+
+                <div class="individual-report-field">
+
+                    <label>Date Reported</label>
+
+                    <p id="detailDate"></p>
+
+                </div>
+
+                <div
+                    class="individual-report-field"
+                    id="detailTimelineContainer"
+                    hidden
+                >
+
+                    <label>
+                        Expected Completion / Timeline
+                    </label>
+
+                    <p id="detailTimeline"></p>
+
+                </div>
+
+            </div>
+
+            <!-- RESIDENT INFORMATION -->
+
+            <div class="individual-report-section">
+
+                <h4>
+                    <i class="bi bi-person"></i>
+                    Resident Information
+                </h4>
+
+                <div class="individual-report-field">
+
+                    <label>Resident Name</label>
+
+                    <p id="detailResident"></p>
+
+                </div>
+
+                <div class="individual-report-field">
+
+                    <label>Email Address</label>
+
+                    <p id="detailEmail"></p>
+
+                </div>
+
+                <div class="individual-report-field">
+
+                    <label>Contact Number</label>
+
+                    <p id="detailContact"></p>
+
+                </div>
+
+            </div>
+
+            <!-- STATUS HISTORY -->
+
+            <div class="manage-history-panel">
+
+                <h3>
+                    <i class="bi bi-clock-history"></i>
+                    Report Status History
+                </h3>
+
+                <div id="detailStatusHistory"></div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+</div>
 
