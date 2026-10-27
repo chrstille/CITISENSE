@@ -652,7 +652,7 @@
     transition:
         box-shadow 0.2s ease,
         border-color 0.2s ease;
-
+    cursor: pointer;
 }
 
 
@@ -1047,4 +1047,1236 @@
 
     }
 
+}
+
+/* =========================================================
+   REPORT VIEW DRAWER PART 2 - REPORT
+========================================================= */
+
+.individual-report-screen[hidden],
+#reportGroupScreen[hidden],
+.report-tab-content[hidden] {
+    display: none !important;
+}
+
+.duplicate-report-card {
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease;
+}
+
+.duplicate-report-card:hover,
+.duplicate-report-card:focus-visible {
+    border-color: #1769ff;
+    box-shadow: 0 4px 18px rgba(23, 105, 255, .12);
+    outline: none;
+}
+
+.report-card-open-hint {
+    align-self: center;
+    margin-left: auto;
+    color: #8291ad;
+}
+
+.individual-report-header {
+    padding: 22px 24px 18px;
+    border-bottom: 1px solid #edf1f8;
+}
+
+.back-report-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: #1769ff;
+    padding: 8px 0;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+}
+
+.individual-report-header h3 {
+    margin: 18px 0 6px;
+    color: #14275c;
+    font-size: 23px;
+}
+
+.individual-report-header p {
+    margin: 0;
+    color: #7a89a8;
+    line-height: 1.5;
+}
+
+.individual-report-card {
+    padding: 24px;
+}
+
+.individual-report-field {
+    margin-bottom: 22px;
+}
+
+.individual-report-field label {
+    display: block;
+    margin-bottom: 7px;
+    color: #637392;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.individual-report-field p {
+    margin: 0;
+    color: #1d2c4e;
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.individual-report-field input[type="date"] {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 12px;
+    border: 1px solid #dce4f1;
+    border-radius: 9px;
+    box-sizing: border-box;
+    font: inherit;
+}
+
+.individual-report-field small {
+    display: block;
+    margin-top: 7px;
+    color: #8291ad;
+}
+
+.individual-report-image {
+    margin-bottom: 22px;
+}
+
+.individual-report-image img {
+    display: block;
+    width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    background: #f5f7fb;
+    border-radius: 12px;
+}
+
+.save-timeline-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 45px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 9px;
+    background: #1769ff;
+    color: #fff;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.save-timeline-button:disabled {
+    opacity: .6;
+    cursor: wait;
+}
+
+#timelineMessage {
+    margin: 10px 0;
+    font-size: 13px;
+}
+
+/* =========================================
+   INDIVIDUAL REPORT SCREEN
+========================================= */
+
+.individual-report-screen {
+    width: 100%;
+    padding: 24px;
+    box-sizing: border-box;
+    background: #fff;
+    color: #252525;
+    animation: reportFadeIn 0.25s ease;
+}
+
+.individual-report-screen[hidden],
+#reportGroupScreen[hidden] {
+    display: none !important;
+}
+
+/* Header */
+.individual-report-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.individual-report-header h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.individual-report-header p {
+    margin: 5px 0 0;
+    color: #777;
+    font-size: 13px;
+}
+
+/* Back button */
+.back-to-reports-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background: #fff;
+    color: #333;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.back-to-reports-btn:hover {
+    background: #f5f5f5;
+}
+
+/* Two-column layout */
+.individual-report-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+/* Information cards */
+.individual-report-section {
+    min-width: 0;
+    padding: 20px;
+    border: 1px solid #e8e8e8;
+    border-radius: 10px;
+    background: #fff;
+}
+
+.individual-report-section h3 {
+    margin: 0 0 18px;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+/* Detail fields */
+.report-detail-item {
+    margin-bottom: 18px;
+}
+
+.report-detail-item:last-child {
+    margin-bottom: 0;
+}
+
+.report-detail-label {
+    display: block;
+    margin-bottom: 6px;
+    color: #777;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.report-detail-value {
+    display: block;
+    color: #292929;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.report-description {
+    white-space: pre-wrap;
+}
+
+/* Report image */
+.report-image-container {
+    margin-top: 12px;
+}
+
+#detailImage {
+    display: block;
+    width: 100%;
+    max-height: 280px;
+    object-fit: contain;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    background: #f7f7f7;
+}
+
+/* Expected completion date */
+.report-timeline-form {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+}
+
+.report-timeline-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.report-timeline-form input[type="date"] {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    border: 1px solid #d5d5d5;
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.report-timeline-form input[type="date"]:focus {
+    outline: none;
+    border-color: #e5a000;
+    box-shadow: 0 0 0 3px rgba(229, 160, 0, 0.15);
+}
+
+/* Save button */
+.save-timeline-btn {
+    margin-top: 12px;
+    padding: 11px 18px;
+    border: none;
+    border-radius: 7px;
+    background: #e5a000;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.save-timeline-btn:hover {
+    background: #c58a00;
+}
+
+.save-timeline-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Save feedback */
+#timelineMessage {
+    display: block;
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+#timelineMessage:empty {
+    display: none;
+}
+
+/* Animation */
+@keyframes reportFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .individual-report-screen {
+        padding: 16px;
+    }
+
+    .individual-report-body {
+        grid-template-columns: 1fr;
+    }
+
+    .individual-report-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+}
+
+
+/* ==========================================
+   UPDATE STATUS & SAVE TIMELINE BUTTON HOVER
+========================================== */
+
+.save-timeline-button {
+    transition: background-color 0.2s ease,
+                color 0.2s ease,
+                border-color 0.2s ease;
+}
+
+.save-timeline-button:hover:not(:disabled) {
+    background-color: #4D94FF;
+    border-color: #4D94FF;
+    color: #ffffff;
+    cursor: pointer;
+}
+
+.save-timeline-button:hover:not(:disabled) i {
+    color: #ffffff;
+}
+
+
+/* ==========================================
+   CITISENSE - REPORT DETAILS UI IMPROVEMENTS
+   Resident Information, Status, Timeline
+========================================== */
+
+/* 1. SECTION CARDS */
+
+.individual-report-screen .individual-report-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 8px rgba(25, 45, 85, 0.025);
+}
+
+/* Section headings */
+
+.individual-report-section h3,
+.individual-report-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 20px;
+    color: #202b42;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.individual-report-section h3 i,
+.individual-report-section h4 i {
+    color: #2563eb;
+    font-size: 19px;
+}
+
+/* 2. RESIDENT INFORMATION */
+
+.individual-report-section .individual-report-field {
+    margin-bottom: 18px;
+}
+
+.individual-report-section .individual-report-field:last-child {
+    margin-bottom: 0;
+}
+
+.individual-report-section .individual-report-field label {
+    display: block;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.individual-report-section .individual-report-field p {
+    margin: 0;
+    color: #1d2c4e;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+/* 3. STATUS AND TIMELINE SECTION */
+
+.individual-report-screen .status-section,
+.individual-report-screen .timeline-section {
+    background: #ffffff;
+}
+
+/* 4. STATUS DROPDOWN */
+
+#individualReportStatus {
+    display: block;
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 42px 10px 14px;
+    box-sizing: border-box;
+
+    border: 1px solid #dce4f1;
+    border-radius: 9px;
+
+    background-color: #ffffff;
+    color: #1d2c4e;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+
+    cursor: pointer;
+    outline: none;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+#individualReportStatus:hover {
+    border-color: #93b4f5;
+}
+
+#individualReportStatus:focus {
+    border-color: #4d94ff;
+    box-shadow: 0 0 0 3px rgba(77, 148, 255, 0.13);
+}
+
+/* 5. DATE AND TIME PICKER */
+
+#reportTimeline {
+    display: block;
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 14px;
+    box-sizing: border-box;
+
+    border: 1px solid #dce4f1;
+    border-radius: 9px;
+
+    background-color: #ffffff;
+    color: #1d2c4e;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+
+    outline: none;
+    cursor: pointer;
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+#reportTimeline:hover {
+    border-color: #93b4f5;
+}
+
+#reportTimeline:focus {
+    border-color: #4d94ff;
+    box-shadow: 0 0 0 3px rgba(77, 148, 255, 0.13);
+}
+
+#reportTimeline::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+/* 6. UPDATE STATUS AND SAVE TIMELINE BUTTONS */
+
+.individual-report-screen .save-timeline-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    min-height: 44px;
+    padding: 11px 20px;
+
+    background: #1769ff;
+    border: 1px solid #1769ff;
+    border-radius: 9px;
+
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease;
+}
+
+.individual-report-screen
+.save-timeline-button:hover:not(:disabled) {
+    background: #4d94ff;
+    border-color: #4d94ff;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(77, 148, 255, 0.2);
+    transform: translateY(-1px);
+}
+
+.individual-report-screen
+.save-timeline-button:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.individual-report-screen
+.save-timeline-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 7. FEEDBACK MESSAGE SPACING */
+
+#statusMessage:empty,
+#timelineMessage:empty {
+    display: none;
+}
+
+#statusMessage,
+#timelineMessage {
+    font-size: 12px;
+    margin-top: 10px;
+    color: #64748b;
+}
+
+/* 8. FORM SPACING */
+
+#timelineForm {
+    margin: 0;
+}
+
+#timelineForm .individual-report-field {
+    margin-bottom: 16px;
+}
+
+.status-section .individual-report-field {
+    margin-bottom: 16px;
+}
+
+/* 9. MOBILE RESPONSIVENESS */
+
+@media (max-width: 600px) {
+
+    .individual-report-screen .individual-report-section {
+        padding: 18px;
+        border-radius: 12px;
+    }
+
+    .individual-report-section h3,
+    .individual-report-section h4 {
+        font-size: 16px;
+    }
+
+    #individualReportStatus,
+    #reportTimeline {
+        width: 100%;
+        font-size: 14px;
+    }
+
+    .individual-report-screen .save-timeline-button {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .individual-report-screen .save-timeline-button {
+        transition: none;
+        transform: none !important;
+    }
+}
+
+
+/* ==========================================
+   CITISENSE - REPORT INFORMATION DESIGN
+========================================== */
+
+/* Report Details main heading */
+
+.individual-report-card > h2 {
+    margin: 0 0 18px;
+    color: #202b42;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+/* Report Information heading */
+
+.individual-report-card > h4 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    margin: 0 0 20px;
+
+    color: #202b42;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.individual-report-card > h4 i {
+    color: #2563eb;
+    font-size: 19px;
+}
+
+/* Report information fields */
+
+.individual-report-card > .individual-report-field {
+    margin-bottom: 18px;
+}
+
+/* Field labels */
+
+.individual-report-card > .individual-report-field label {
+    display: block;
+    margin-bottom: 6px;
+
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+/* Field values */
+
+.individual-report-card > .individual-report-field p {
+    margin: 0;
+
+    color: #1d2c4e;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.6;
+
+    overflow-wrap: anywhere;
+}
+
+/* Description text */
+
+#detailDescription {
+    white-space: pre-wrap;
+    line-height: 1.7;
+}
+
+/* Consistent spacing before date section */
+
+.individual-report-card > .individual-report-section:first-of-type {
+    margin-top: 20px;
+}
+
+/* Mobile adjustments */
+
+@media (max-width: 600px) {
+
+    .individual-report-card > h2 {
+        font-size: 22px;
+    }
+
+    .individual-report-card > h4 {
+        font-size: 16px;
+    }
+
+    .individual-report-card > .individual-report-field {
+        margin-bottom: 16px;
+    }
+}
+
+
+/* BACK TO REPORTS - SUBTLE OUTLINED BUTTON */
+
+#backToReportList {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    padding: 10px 16px;
+
+    background-color: #ffffff;
+    border: 1px solid #bfdbfe;
+    border-radius: 9px;
+
+    color: #2563eb;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.4;
+
+    cursor: pointer;
+
+    margin-left: 0;
+
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+#backToReportList i {
+    font-size: 18px;
+}
+
+#backToReportList:hover {
+    background-color: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+}
+
+#backToReportList:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #backToReportList {
+        transition: none;
+    }
+}
+
+/* ==========================================
+   OVERDUE REPORT CARDS
+========================================== */
+
+.report-view-content .duplicate-report-card.is-overdue {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.report-view-content .duplicate-report-card.is-overdue:hover,
+.report-view-content .duplicate-report-card.is-overdue:focus-visible {
+    border-color: #e11d48;
+    box-shadow: 0 5px 18px rgba(225, 29, 72, 0.12);
+}
+
+/* ==========================================
+   REPORT STATUS BADGES
+========================================== */
+
+.report-view-content .report-card-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    margin-top: 10px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.report-view-content .report-card-status.status-pending {
+    color: #92400e;
+    background: #fef3c7;
+}
+
+.report-view-content .report-card-status.status-in-progress {
+    color: #1d4ed8;
+    background: #dbeafe;
+}
+
+.report-view-content .report-card-status.status-overdue {
+    color: #be123c;
+    background: #ffe4e6;
+}
+
+.report-view-content .report-card-status.status-resolved {
+    color: #166534;
+    background: #dcfce7;
+}
+
+/* ==========================================
+   REPORT TIMELINE
+========================================== */
+
+.report-view-content .timeline-readonly {
+    padding: 12px 14px;
+    border-radius: 9px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+}
+
+.report-view-content .report-workflow-note {
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 8px;
+}
+
+.report-view-content [hidden] {
+    display: none !important;
+}
+
+
+.report-view-content
+.duplicate-report-card.is-overdue
+.report-description {
+    background-color: #FFE4E6;
+    border: 1px solid #FECDD3;
+    color: #9F1239;
+    border-radius: 8px;
+}
+
+/* ==========================================
+   OVERDUE STATUS BADGE
+========================================== */
+
+.report-view-content
+.report-summary
+.status-badge.status-overdue {
+    background-color: #FFE4E6;
+    color: #BE123C;
+    border: 1px solid #FECDD3;
+}
+
+/* OVERDUE REPORT CARD */
+
+.report-view-content
+.duplicate-report-card.is-overdue {
+    background-color: #FFF1F2;
+    border: 1px solid #FECDD3;
+}
+
+/* OVERDUE DESCRIPTION */
+
+.report-view-content
+.duplicate-report-card.is-overdue
+.report-description {
+    background-color: #FFE4E6;
+    border: 1px solid #FECDD3;
+    color: #9F1239;
+}
+
+
+/* Match the existing Back to Reports button in Report Details */
+
+.manage-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+
+    width: auto;
+    margin-bottom: 22px;
+    padding: 10px 16px;
+
+    background: #eff6ff;
+    color: #2563eb;
+
+    border: 1px solid #bfdbfe;
+    border-radius: 9px;
+
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.manage-back-button:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+
+.manage-back-button i {
+    font-size: 16px;
+}
+
+
+/* =========================================================
+   MANAGE REPORTS - CATEGORY SELECTION
+========================================================= */
+
+.report-view-content .manage-screen {
+    padding: 24px;
+}
+
+.report-view-content .manage-back-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px 20px;
+    margin-bottom: 24px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    color: #2563eb;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.report-view-content .manage-back-button:hover {
+    background: #dbeafe;
+}
+
+.report-view-content .manage-heading {
+    margin: 0 0 8px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.report-view-content .manage-subtitle {
+    margin: 0 0 24px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #64748b;
+}
+
+.report-view-content .manage-category-buttons {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.report-view-content .manage-category-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    padding: 18px 20px;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+    color: #2563eb;
+    font-family: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.report-view-content .manage-category-button:hover {
+    background: #dbeafe;
+    border-color: #93c5fd;
+}
+
+.report-view-content .manage-category-button > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.report-view-content .manage-category-button > i {
+    font-size: 16px;
+}
+
+/* =========================================================
+   ORIGINAL AND DUPLICATE REPORTS
+========================================================= */
+
+.report-view-content .is-original-report {
+    background: #eff6ff !important;
+    border: 1px solid #bfdbfe !important;
+}
+
+.report-view-content .is-original-report .report-description {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #bfdbfe;
+}
+
+.report-view-content .manage-report-type {
+    display: inline-block;
+    margin-bottom: 9px;
+    padding: 5px 10px;
+    border-radius: 7px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.report-view-content .is-original-report .manage-report-type {
+    background: #bfdbfe;
+    color: #1d4ed8;
+}
+
+.report-view-content .manage-cycle {
+    margin-bottom: 28px;
+}
+
+.report-view-content .manage-cycle-heading {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #475569;
+}
+
+.report-view-content .manage-duplicates-heading {
+    margin: 18px 0 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #64748b;
+}
+
+/* =========================================================
+   STATUS AND TIMELINE MANAGEMENT
+========================================================= */
+
+.report-view-content .manage-edit-panel,
+.report-view-content .manage-history-panel {
+    margin-top: 20px;
+    padding: 22px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.report-view-content .manage-edit-panel h3,
+.report-view-content .manage-history-panel h3 {
+    margin: 0 0 18px;
+    font-size: 17px;
+    color: #1e293b;
+}
+
+.report-view-content .manage-field {
+    margin-bottom: 18px;
+}
+
+.report-view-content .manage-field label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.report-view-content .manage-field select,
+.report-view-content .manage-field input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #334155;
+    font: inherit;
+}
+
+.report-view-content .manage-save-button {
+    padding: 11px 18px;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #ffffff;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.report-view-content .manage-save-button:hover {
+    background: #3b82f6;
+}
+
+.report-view-content .manage-save-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* =========================================================
+   REPORT STATUS HISTORY
+========================================================= */
+
+.report-view-content .manage-history-item {
+    border-left: 3px solid #bfdbfe;
+    padding: 4px 0 16px 16px;
+    margin-bottom: 14px;
+}
+
+.report-view-content .manage-history-item:last-child {
+    margin-bottom: 0;
+}
+
+.report-view-content .manage-history-item strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #1e293b;
+}
+
+.report-view-content .manage-history-item small {
+    display: block;
+    color: #64748b;
+    line-height: 1.7;
+}
+
+.report-view-content .manage-history-item p {
+    margin: 8px 0 0;
+    color: #475569;
+    line-height: 1.6;
+}
+
+.report-view-content .manage-empty {
+    padding: 18px 0;
+    color: #64748b;
+}
+
+/* =========================================================
+   INITIAL MANAGE REPORTS BUTTON
+========================================================= */
+
+.report-view-content .report-summary-manage-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.report-view-content .manage-group-reports-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid #bfdbfe;
+    border-radius: 9px;
+    background: #dbeafe;
+    color: #2563eb;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.report-view-content .manage-group-reports-btn:hover {
+    background: #bfdbfe;
+}
+
+/* =========================================================
+   HIDDEN SCREENS
+========================================================= */
+
+.report-view-content .manage-screen[hidden],
+.report-view-content #reportGroupScreen[hidden],
+.report-view-content #individualReportScreen[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 600px) {
+    .report-view-content .manage-screen {
+        padding: 16px;
+    }
+
+    .report-view-content .manage-category-button {
+        padding: 16px;
+        font-size: 14px;
+    }
+
+    .report-view-content .manage-edit-panel,
+    .report-view-content .manage-history-panel {
+        padding: 16px;
+    }
 }

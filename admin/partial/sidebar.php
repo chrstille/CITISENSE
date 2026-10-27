@@ -132,7 +132,7 @@ $currentPage = basename($_SERVER["PHP_SELF"]);
 
 
             <a
-                href="#"
+                href="settings.php"
                 class="nav-item"
             >
 

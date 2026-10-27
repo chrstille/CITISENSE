@@ -486,16 +486,22 @@ $stmt->close();
                                 <!-- PROFILE -->
 
                                 <td>
+                                    <?php
+                                    $profilePic = trim($user["profilePic"] ?? "");
 
-                                    <?php if (
-                                        !empty(
-                                            $user["profilePic"]
-                                        )
-                                    ): ?>
+                                    if ($profilePic !== ""):
+                                        // Keep external image URLs unchanged.
+                                        // Resolve local profile images from the CitiSense project root.
+                                        $profileImageSrc = preg_match('~^https?://~i', $profilePic)
+                                            ? $profilePic
+                                            : '/citisense/' . ltrim($profilePic, '/');
+                                    ?>
 
                                         <img
                                             src="<?= htmlspecialchars(
-                                                $user["profilePic"]
+                                                $profileImageSrc,
+                                                ENT_QUOTES,
+                                                'UTF-8'
                                             ) ?>"
                                             alt="Profile"
                                             class="profile-image"
@@ -503,24 +509,21 @@ $stmt->close();
 
                                     <?php else: ?>
 
-                                        <div
-                                            class="profile-placeholder"
-                                        >
-
+                                        <div class="profile-placeholder">
                                             <?= htmlspecialchars(
                                                 strtoupper(
                                                     substr(
-                                                        $user["firstName"],
+                                                        $user["firstName"] ?? "?",
                                                         0,
                                                         1
                                                     )
-                                                )
+                                                ),
+                                                ENT_QUOTES,
+                                                'UTF-8'
                                             ) ?>
-
                                         </div>
 
                                     <?php endif; ?>
-
                                 </td>
 
 

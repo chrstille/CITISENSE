@@ -1,901 +1,783 @@
 <?php
-
 session_start();
 
-
-// ======================================================
-// ADMIN SESSION CHECK
-// ======================================================
-
 if (
-    !isset($_SESSION["admin_id"]) ||
-    !isset($_SESSION["barangay_id"])
+    empty($_SESSION["admin_id"]) ||
+    empty($_SESSION["barangay_id"])
 ) {
-    http_response_code(401);
-    echo "Unauthorized.";
+    header("Location: login.php");
     exit;
 }
-
-
-// ======================================================
-// DATABASE CONNECTION
-// ======================================================
 
 require_once __DIR__ . "/../config/database.php";
 
+$barangayID = (string) $_SESSION["barangay_id"];
 
-// ======================================================
-// GET LOGGED-IN ADMIN'S BARANGAY
-// ======================================================
-//
-// IMPORTANT:
-// We do NOT accept barangayID from the URL.
-//
-// The barangay comes from the authenticated session.
-// This prevents an admin from manually changing a URL
-// to access another barangay's reports.
-// ======================================================
+/* =========================================================
+   BARANGAY INFORMATION
+========================================================= */
 
-$barangayID = $_SESSION["barangay_id"];
-
-
-// ======================================================
-// GET SELECTED REPORT GROUP
-// ======================================================
-
-$categoryID = trim($_GET["categoryID"] ?? "");
-$locationID = trim($_GET["locationID"] ?? "");
-
-
-if ($categoryID === "" || $locationID === "") {
-
-    http_response_code(400);
-
-    echo "Invalid report selection.";
-
-    exit;
-}
-
-
-// ======================================================
-// GET REPORT SUBMISSIONS
-// ======================================================
-//
-// A report group is determined by:
-//
-//     categoryID + locationID + barangayID
-//
-// Every matching row in reports represents a submitted
-// report for that issue/location group.
-//
-// No report information is hard-coded here.
-// ======================================================
-
-$sql = "
-    SELECT
-
-        r.reportID,
-        r.userID,
-        r.categoryID,
-        r.statusID,
-        r.locationID,
-
-        r.title,
-        r.description,
-        r.dateReported,
-        r.timeline,
-
-        c.categoryName,
-
-        s.statusName,
-
-        l.address,
-        l.latitude,
-        l.longitude,
-
-        u.firstName,
-        u.lastName,
-        u.email,
-        u.contactNo,
-
-        (
-            SELECT ri.imagePath
-
-            FROM reportImages ri
-
-            WHERE ri.reportID = r.reportID
-
-            ORDER BY ri.uploadedAt ASC
-
-            LIMIT 1
-
-        ) AS imagePath
-
-    FROM reports r
-
-    INNER JOIN categories c
-        ON r.categoryID = c.categoryID
-
-    INNER JOIN stats s
-        ON r.statusID = s.statusID
-
-    INNER JOIN location l
-        ON r.locationID = l.locationID
-
-    INNER JOIN users u
-        ON r.userID = u.userID
-
-    WHERE r.barangayID = ?
-      AND r.categoryID = ?
-      AND r.locationID = ?
-
-    ORDER BY r.dateReported DESC
-";
-
-
-$stmt = $conn->prepare($sql);
-
-
-if (!$stmt) {
-
-    http_response_code(500);
-
-    echo "Unable to prepare report query.";
-
-    exit;
-}
-
-
-$stmt->bind_param(
-    "sss",
-    $barangayID,
-    $categoryID,
-    $locationID
+$stmt = $conn->prepare(
+    "SELECT barangayName
+     FROM barangay
+     WHERE barangayID = ?
+     LIMIT 1"
 );
 
-
+$stmt->bind_param("s", $barangayID);
 $stmt->execute();
 
-
-$result = $stmt->get_result();
-
-
-$reports = [];
-
-
-while ($row = $result->fetch_assoc()) {
-
-    $reports[] = $row;
-
-}
-
+$barangayData = $stmt->get_result()->fetch_assoc();
+$barangayName = $barangayData["barangayName"] ?? "Unknown Barangay";
 
 $stmt->close();
 
+/* =========================================================
+   REPORT GROUPS
+   Keep one row per required category.
+   The JavaScript filters each report before recalculating
+   the count and latest matching report.
+========================================================= */
 
-// ======================================================
-// CHECK IF REPORTS EXIST
-// ======================================================
-
-if (count($reports) === 0) {
-
-    http_response_code(404);
-
-    echo "No reports found.";
-
-    exit;
-}
-
-
-// ======================================================
-// GROUP INFORMATION
-// ======================================================
-
-$firstReport = $reports[0];
-
-$categoryName = $firstReport["categoryName"];
-
-$address = $firstReport["address"];
-
-$totalReports = count($reports);
-
-
-// ======================================================
-// DETERMINE GROUP STATUS
-// ======================================================
-//
-// We do not hard-code the status names.
-// The status values come from the stats table.
-//
-// If every submission has the same status,
-// display that status.
-//
-// Otherwise, display a UI-level "Mixed" state.
-// ======================================================
-
-$statusNames = [];
-
-foreach ($reports as $report) {
-
-    $statusNames[] = $report["statusName"];
-
-}
-
-$statusNames = array_unique($statusNames);
-
-
-if (count($statusNames) === 1) {
-
-    $groupStatus = reset($statusNames);
-
-} else {
-
-    $groupStatus = "Mixed";
-
-}
-
-
-// ======================================================
-// GET AVAILABLE STATUSES FROM DATABASE
-// ======================================================
-//
-// These are used by the status dropdown.
-//
-// No Pending/In Progress/Resolved values are hard-coded.
-// ======================================================
-
-$statusList = [];
-
-$statusQuery = "
+$sql = "
     SELECT
-        statusID,
-        statusName
-
-    FROM stats
-
-    ORDER BY statusID
+        c.categoryID,
+        c.categoryName,
+        (
+            SELECT r2.locationID
+            FROM reports r2
+            WHERE r2.categoryID = c.categoryID
+              AND r2.barangayID = ?
+            ORDER BY r2.dateReported DESC, r2.reportID DESC
+            LIMIT 1
+        ) AS locationID,
+        (
+            SELECT l2.address
+            FROM reports r2
+            LEFT JOIN location l2
+                ON l2.locationID = r2.locationID
+            WHERE r2.categoryID = c.categoryID
+              AND r2.barangayID = ?
+            ORDER BY r2.dateReported DESC, r2.reportID DESC
+            LIMIT 1
+        ) AS address,
+        COUNT(DISTINCT r.reportID) AS totalReports,
+        MAX(r.dateReported) AS latestReport,
+        GROUP_CONCAT(
+            CONCAT_WS('~',
+                COALESCE(r.reportID, ''),
+                COALESCE(
+                    DATE_FORMAT(r.dateReported, '%Y-%m-%d %H:%i:%s'),
+                    ''
+                ),
+                COALESCE(s.statusName, ''),
+                COALESCE(r.title, ''),
+                COALESCE(r.description, ''),
+                COALESCE(r.locationID, ''),
+                COALESCE(l.address, '')
+            )
+            SEPARATOR '||'
+        ) AS reportFilterData
+    FROM categories c
+    LEFT JOIN reports r
+        ON r.categoryID = c.categoryID
+        AND r.barangayID = ?
+    LEFT JOIN location l
+        ON r.locationID = l.locationID
+    LEFT JOIN stats s
+        ON r.statusID = s.statusID
+    WHERE LOWER(TRIM(c.categoryName)) IN (
+        'waste accumulation',
+        'potholes',
+        'blocked drainage',
+        'others'
+    )
+    GROUP BY
+        c.categoryID,
+        c.categoryName
+    ORDER BY
+        CASE LOWER(TRIM(c.categoryName))
+            WHEN 'waste accumulation' THEN 1
+            WHEN 'potholes' THEN 2
+            WHEN 'blocked drainage' THEN 3
+            WHEN 'others' THEN 4
+            ELSE 5
+        END,
+        CASE WHEN MAX(r.dateReported) IS NULL THEN 1 ELSE 0 END,
+        latestReport DESC,
+        c.categoryName ASC
 ";
 
+$stmt = $conn->prepare($sql);
+$stmt->bind_param(
+    "sss",
+    $barangayID,
+    $barangayID,
+    $barangayID
+);
+$stmt->execute();
 
-$statusResult = $conn->query($statusQuery);
+$reportGroups = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+$stmt->close();
 
-if ($statusResult) {
+/* =========================================================
+   TOTAL REPORT SUBMISSIONS
+========================================================= */
 
-    while ($statusRow = $statusResult->fetch_assoc()) {
+$stmt = $conn->prepare(
+    "SELECT COUNT(reportID) AS totalReports
+     FROM reports
+     WHERE barangayID = ?"
+);
 
-        $statusList[] = $statusRow;
+$stmt->bind_param("s", $barangayID);
+$stmt->execute();
 
+$totalData = $stmt->get_result()->fetch_assoc();
+$totalReports = (int) ($totalData["totalReports"] ?? 0);
+
+$stmt->close();
+
+/* =========================================================
+   STATUS COUNTS
+========================================================= */
+
+$sql = "
+    SELECT
+        s.statusID,
+        s.statusName,
+        COUNT(r.reportID) AS reportCount
+    FROM stats s
+    LEFT JOIN reports r
+        ON r.statusID = s.statusID
+        AND r.barangayID = ?
+    WHERE s.statusID IN (
+        'STAT001',
+        'STAT002',
+        'STAT003',
+        'STAT004'
+    )
+    GROUP BY
+        s.statusID,
+        s.statusName
+";
+
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $barangayID);
+$stmt->execute();
+
+$statusResult = $stmt->get_result();
+
+$statusCounts = [
+    "Pending" => 0,
+    "In Progress" => 0,
+    "Overdue" => 0,
+    "Resolved" => 0
+];
+
+while ($row = $statusResult->fetch_assoc()) {
+    $statusName = $row["statusName"];
+
+    if (array_key_exists($statusName, $statusCounts)) {
+        $statusCounts[$statusName] = (int) $row["reportCount"];
     }
-
 }
 
+$stmt->close();
 
-// ======================================================
-// HELPER: STATUS CSS CLASS
-// ======================================================
-//
-// The status name itself still comes from the database.
-// This only converts its text into a safe CSS class.
-// ======================================================
+/* =========================================================
+   STATUS PERCENTAGES
+========================================================= */
 
-function getStatusClass($statusName)
-{
-    $statusName = strtolower(trim($statusName));
+$pendingPercent = 0;
+$inProgressPercent = 0;
+$overduePercent = 0;
+$resolvedPercent = 0;
 
-    $statusName = preg_replace(
-        "/[^a-z0-9]+/",
-        "-",
-        $statusName
+if ($totalReports > 0) {
+    $pendingPercent = round(
+        $statusCounts["Pending"] / $totalReports * 100
     );
 
-    return trim($statusName, "-");
+    $inProgressPercent = round(
+        $statusCounts["In Progress"] / $totalReports * 100
+    );
+
+    $overduePercent = round(
+        $statusCounts["Overdue"] / $totalReports * 100
+    );
+
+    $resolvedPercent = round(
+        $statusCounts["Resolved"] / $totalReports * 100
+    );
 }
 
+/* =========================================================
+   RECENT REPORT
+========================================================= */
 
-// ======================================================
-// HELPER: FORMAT DATE
-// ======================================================
+$sql = "
+    SELECT
+        r.reportID,
+        r.title,
+        r.description,
+        r.dateReported,
+        c.categoryName,
+        l.address,
+        u.firstName,
+        u.lastName
+    FROM reports r
+    INNER JOIN categories c
+        ON r.categoryID = c.categoryID
+    INNER JOIN location l
+        ON r.locationID = l.locationID
+    INNER JOIN users u
+        ON r.userID = u.userID
+    WHERE r.barangayID = ?
+    ORDER BY r.dateReported DESC
+    LIMIT 1
+";
 
-function formatReportDate($date)
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("s", $barangayID);
+$stmt->execute();
+
+$recentReport = $stmt->get_result()->fetch_assoc();
+
+$stmt->close();
+
+/* =========================================================
+   UNREAD ADMIN NOTIFICATIONS
+========================================================= */
+
+$stmt = $conn->prepare(
+    "SELECT COUNT(*) AS unreadNotifications
+     FROM notification
+     WHERE userID = ?
+     AND isRead = FALSE"
+);
+
+$adminID = (string) $_SESSION["admin_id"];
+
+$stmt->bind_param("s", $adminID);
+$stmt->execute();
+
+$notificationData = $stmt->get_result()->fetch_assoc();
+
+$unreadNotifications = (int) (
+    $notificationData["unreadNotifications"] ?? 0
+);
+
+$stmt->close();
+
+/* =========================================================
+   HTML ESCAPING
+========================================================= */
+
+function reportsEscape($value): string
 {
-    if (!$date) {
-        return "";
-    }
-
-    $timestamp = strtotime($date);
-
-    if ($timestamp === false) {
-        return htmlspecialchars($date);
-    }
-
-    return date("M j, Y", $timestamp);
+    return htmlspecialchars(
+        (string) ($value ?? ""),
+        ENT_QUOTES,
+        "UTF-8"
+    );
 }
-
-
-// ======================================================
-// HELPER: FORMAT TIME
-// ======================================================
-
-function formatReportTime($date)
-{
-    if (!$date) {
-        return "";
-    }
-
-    $timestamp = strtotime($date);
-
-    if ($timestamp === false) {
-        return "";
-    }
-
-    return date("g:i A", $timestamp);
-}
-
 ?>
 
+        if (!response.ok) {
+            throw new Error("Unable to load report details.");
+        }
 
-<!-- =====================================================
-     REPORT VIEW CONTENT
-====================================================== -->
+        const html = await response.text();
 
-<div
-    class="report-view-content"
-    data-category-id="<?php echo htmlspecialchars($categoryID); ?>"
-    data-location-id="<?php echo htmlspecialchars($locationID); ?>"
->
+        reportDrawerContent.innerHTML = html;
 
+        // Resolve report images against the CitiSense project root.
+        reportDrawerContent.querySelectorAll("img[src]").forEach(function (img) {
+            const originalSrc = img.getAttribute("src") || "";
+            const match = originalSrc.match(/^(?:\.?\.?\/)*uploads\/reports\/(.+)$/i);
 
-    <!-- =================================================
-         HEADER
-    ================================================== -->
+            if (match) {
+                img.src = "/citisense/uploads/reports/" + match[1];
+            }
+        });
 
-    <div class="report-view-header">
+        initializeReportDrawer();
 
+        return true;
 
-        <div class="report-view-title-section">
-
-
-            <!-- Generic icon.
-                 The actual category comes from MySQL. -->
-
-            <div class="report-category-icon">
-
-                <i class="bi bi-file-earmark-text"></i>
-
+    } catch (error) {
+        reportDrawerContent.innerHTML = `
+            <div class="report-view-error">
+                <i class="bi bi-exclamation-circle"></i>
+                <p>Unable to load report details.</p>
             </div>
+        `;
+
+        showReportToast(
+            error.message || "Unable to load report details.",
+            true
+        );
+
+        return false;
+    }
+}
+
+/* =========================================================
+   OPEN REPORT GROUP
+========================================================= */
+
+document.querySelectorAll(".view-report-btn").forEach(button => {
+    button.addEventListener("click", async function () {
+        activeManageCategoryID = "";
+        activeOriginalID = "";
+        detailReturnScreen = null;
+
+        openReportDrawer();
+
+        const loaded = await loadReportDrawer(
+            this.dataset.categoryId,
+            this.dataset.locationId
+        );
 
+        if (loaded) {
+            showGroupScreen();
+        }
+    });
+});
+
+reportDrawerOverlay.addEventListener("click", closeReportDrawer);
 
-            <div>
+/* =========================================================
+   SCREEN NAVIGATION
+========================================================= */
+
+function getReportRoot() {
+    return reportDrawerContent.querySelector(
+        ".report-view-content"
+    );
+}
+
+function hideAllReportScreens(root) {
+    root.querySelectorAll(
+        "#reportGroupScreen, " +
+        "#manageCategoriesScreen, " +
+        ".manage-category-screen, " +
+        ".manage-original-screen, " +
+        "#individualReportScreen"
+    ).forEach(screen => {
+        screen.hidden = true;
+    });
+}
+
+function showReportScreen(screen) {
+    const root = getReportRoot();
 
-                <h2>
+    if (!root || !screen) {
+        return;
+    }
 
-                    <?php echo htmlspecialchars($categoryName); ?>
+    hideAllReportScreens(root);
 
-                </h2>
+    screen.hidden = false;
 
+    reportDrawer.scrollTop = 0;
+}
+
+function showGroupScreen() {
+    const root = getReportRoot();
+
+    if (!root) {
+        return;
+    }
+
+    const screen = root.querySelector("#reportGroupScreen");
+
+    if (screen) {
+        activeManageCategoryID = "";
+        activeOriginalID = "";
+        detailReturnScreen = null;
+
+        showReportScreen(screen);
+    }
+}
+
+function showManageCategories() {
+    const root = getReportRoot();
+
+    if (!root) {
+        return;
+    }
+
+    activeOriginalID = "";
+
+    showReportScreen(
+        root.querySelector("#manageCategoriesScreen")
+    );
+}
+
+function showManageCategory(categoryID) {
+    const root = getReportRoot();
+
+    if (!root) {
+        return;
+    }
+
+    const screen = Array.from(
+        root.querySelectorAll(".manage-category-screen")
+    ).find(item =>
+        item.dataset.categoryScreen === categoryID
+    );
+
+    if (!screen) {
+        return;
+    }
+
+    activeManageCategoryID = categoryID;
+    activeOriginalID = "";
+
+    showReportScreen(screen);
+}
+
+function showManageOriginal(reportID) {
+    const root = getReportRoot();
+
+    if (!root) {
+        return;
+    }
+
+    const screen = Array.from(
+        root.querySelectorAll(".manage-original-screen")
+    ).find(item =>
+        item.dataset.originalScreen === reportID
+    );
+
+    if (!screen) {
+        return;
+    }
+
+    activeOriginalID = reportID;
+    activeManageCategoryID = screen.dataset.parentCategory || "";
+
+    showReportScreen(screen);
+}
+
+/* =========================================================
+   DATE FORMATTING
+========================================================= */
+
+function formatReportTimeline(value) {
+    if (!value) {
+        return "";
+    }
+
+    const normalizedValue = value.replace(" ", "T");
+    const date = new Date(normalizedValue);
+
+    if (Number.isNaN(date.getTime())) {
+        return value;
+    }
+
+    return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+    });
+}
+
+/* =========================================================
+   READ-ONLY REPORT DETAILS
+========================================================= */
+
+function openReadOnlyReport(card) {
+    const root = getReportRoot();
+
+    if (!root || !card) {
+        return;
+    }
+
+    const detailScreen =
+        root.querySelector("#individualReportScreen");
+
+    if (!detailScreen) {
+        return;
+    }
+
+    detailReturnScreen = Array.from(
+        root.querySelectorAll(
+            "#reportGroupScreen, .manage-category-screen"
+        )
+    ).find(screen => !screen.hidden) || null;
 
-                <p>
+    const fields = {
+        detailCategory: card.dataset.category,
+        detailResident: card.dataset.resident,
+        detailEmail: card.dataset.email,
+        detailContact: card.dataset.contact,
+        detailReportID: card.dataset.reportId,
+        detailLocation: card.dataset.location,
+        detailDescription: card.dataset.description,
+        detailDate: formatReportTimeline(card.dataset.date),
+        detailStatus: card.dataset.statusName
+    };
 
-                    <i class="bi bi-geo-alt"></i>
+    Object.entries(fields).forEach(([id, value]) => {
+        const element = root.querySelector("#" + id);
 
-                    <?php echo htmlspecialchars($address); ?>
+        if (element) {
+            element.textContent = value || "Not provided";
+        }
+    });
 
-                </p>
+    /* TIMELINE */
+
+    const timelineContainer =
+        root.querySelector("#detailTimelineContainer");
 
-            </div>
+    const timelineText =
+        root.querySelector("#detailTimeline");
 
+    if (timelineContainer && timelineText) {
+        const timeline = card.dataset.timeline || "";
 
-        </div>
+        timelineText.textContent =
+            formatReportTimeline(timeline);
 
+        timelineContainer.hidden = !timeline;
+    }
 
-        <!-- CLOSE -->
+    /* REPORT IMAGE */
+
+    const imageContainer =
+        root.querySelector("#detailImageContainer");
+
+    const image = root.querySelector("#detailImage");
 
-        <button
-            type="button"
-            class="report-view-close"
-            id="closeReportView"
-            aria-label="Close report view"
-        >
+    if (imageContainer && image) {
+        if (card.dataset.image) {
+            image.src = card.dataset.image;
+            imageContainer.hidden = false;
+        } else {
+            image.removeAttribute("src");
+            imageContainer.hidden = true;
+        }
+    }
+
+    /* STATUS HISTORY */
 
-            <i class="bi bi-x-lg"></i>
+    const historyTarget =
+        root.querySelector("#detailStatusHistory");
 
-        </button>
+    const reportID = card.dataset.reportId;
 
+    const historyTemplate = Array.from(
+        root.querySelectorAll("[data-history-report-id]")
+    ).find(node =>
+        node.dataset.historyReportId === reportID
+    );
 
-    </div>
+    if (historyTarget) {
+        historyTarget.replaceChildren();
+
+        if (historyTemplate) {
+            const clonedNodes = Array.from(
+                historyTemplate.childNodes
+            ).map(node => node.cloneNode(true));
+
+            historyTarget.append(...clonedNodes);
+        } else {
+            const emptyMessage = document.createElement("p");
+
+            emptyMessage.className = "manage-empty";
 
+            emptyMessage.textContent =
+                "No status history recorded for this report.";
+
+            historyTarget.appendChild(emptyMessage);
+        }
+    }
+
+    showReportScreen(detailScreen);
+}
+
+/* =========================================================
+   DRAWER CLICK HANDLERS
+========================================================= */
+
+document.addEventListener("click", function (event) {
+    const root = event.target.closest(".report-view-content");
+
+    if (!root) {
+        return;
+    }
+
+    /* MANAGE REPORTS BUTTON */
+
+    if (event.target.closest("#manageGroupReports")) {
+        showManageCategories();
+        return;
+    }
+
+    /* CATEGORY BUTTON */
+
+    const categoryButton = event.target.closest(
+        "[data-manage-category]"
+    );
+
+    if (categoryButton) {
+        showManageCategory(
+            categoryButton.dataset.manageCategory
+        );
+        return;
+    }
+
+    /* BACK BUTTONS */
+
+    const backButton = event.target.closest("[data-manage-back]");
+
+    if (backButton) {
+        const destination = backButton.dataset.manageBack;
+
+        if (destination === "group") {
+            showGroupScreen();
+        } else if (destination === "categories") {
+            showManageCategories();
+        } else if (destination === "category") {
+            showManageCategory(
+                backButton.dataset.categoryId
+            );
+        }
+
+        return;
+    }
+
+    /* BACK FROM REPORT DETAILS */
+
+    if (event.target.closest("#backToReportList")) {
+        if (detailReturnScreen) {
+            showReportScreen(detailReturnScreen);
+        } else {
+            showGroupScreen();
+        }
+
+        return;
+    }
+
+    /* REPORT CARDS */
+
+    const card = event.target.closest(".duplicate-report-card");
+
+    if (card) {
+        if (
+            card.dataset.manage === "1" &&
+            card.dataset.original === "0"
+        ) {
+            return;
+        }
+
+        if (
+            card.dataset.manage === "1" &&
+            card.dataset.original === "1"
+        ) {
+            showManageOriginal(card.dataset.reportId);
+        } else {
+            openReadOnlyReport(card);
+        }
+
+        return;
+    }
+
+    /* CLOSE BUTTON */
+
+    if (
+        event.target.closest(
+            "[data-close-report-view], #closeReportView"
+        )
+    ) {
+        closeReportDrawer();
+    }
+});
+
+/* =========================================================
+   KEYBOARD SUPPORT
+========================================================= */
+
+document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+        closeReportDrawer();
+        hideReportToast();
+
+        if (exportModal) {
+            exportModal.hidden = true;
+        }
+
+        return;
+    }
+
+    if (event.key !== "Enter" && event.key !== " ") {
+        return;
+    }
+
+    const card = event.target.closest(".duplicate-report-card");
+
+    if (!card) {
+        return;
+    }
+
+    if (
+        card.dataset.manage === "1" &&
+        card.dataset.original === "0"
+    ) {
+        return;
+    }
+
+    event.preventDefault();
+    card.click();
+});
+
+/* =========================================================
+   REFRESH ORIGINAL REPORT MANAGEMENT SCREEN
+   Used after saving a timeline.
+========================================================= */
+
+async function refreshManageOriginal(reportID) {
+    const categoryID = activeManageCategoryID;
+    const currentCategory = currentCategoryID;
+    const currentLocation = currentLocationID;
+
+    const loaded = await loadReportDrawer(
+        currentCategory,
+        currentLocation
+    );
+
+    if (!loaded) {
+        return;
+    }
+
+    if (categoryID) {
+        showManageCategory(categoryID);
+    }
+
+    if (reportID) {
+        const root = getReportRoot();
+
+        if (!root) {
+            return;
+        }
+
+        const originalScreen = Array.from(
+            root.querySelectorAll(".manage-original-screen")
+        ).find(screen =>
+            screen.dataset.originalScreen === reportID
+        );
+
+        if (originalScreen) {
+            showManageOriginal(reportID);
+        }
+    }
+}
 
-
-    <!-- =================================================
-         SUMMARY
-    ================================================== -->
-
-    <div class="report-summary">
-
-
-        <strong>
-
-            <?php echo $totalReports; ?>
-
-            <?php echo $totalReports === 1 ? "report" : "reports"; ?>
-
-        </strong>
-
-
-        <?php if ($groupStatus !== "Mixed"): ?>
-
-            <span
-                class="status-badge status-<?php echo htmlspecialchars(
-                    getStatusClass($groupStatus)
-                ); ?>"
-            >
-
-                <?php echo htmlspecialchars($groupStatus); ?>
-
-            </span>
-
-        <?php else: ?>
-
-            <span class="status-badge status-mixed">
-
-                Mixed
-
-            </span>
-
-        <?php endif; ?>
-
-
-    </div>
-
-
-
-    <!-- =================================================
-         TABS
-    ================================================== -->
-
-    <div class="report-view-tabs">
-
-
-        <button
-            type="button"
-            class="report-tab active"
-            data-tab="duplicates"
-        >
-
-            Reports
-            (<?php echo $totalReports; ?>)
-
-        </button>
-
-
-        <button
-            type="button"
-            class="report-tab"
-            data-tab="details"
-        >
-
-            Report Details
-
-        </button>
-
-
-    </div>
-
-
-
-    <!-- =================================================
-         REPORTS TAB
-    ================================================== -->
-
-    <div
-        class="report-tab-content active"
-        id="duplicatesTab"
-    >
-
-
-        <p class="duplicate-description">
-
-            These reports are grouped under the same
-            issue and location.
-
-        </p>
-
-
-
-        <!-- =============================================
-             STATUS CONTROL
-        ============================================== -->
-
-        <div class="duplicate-actions">
-
-
-            <label for="bulkStatus">
-
-                Status for all reports
-
-            </label>
-
-
-            <div class="bulk-status-row">
-
-
-                <select id="bulkStatus">
-
-
-                    <?php foreach ($statusList as $status): ?>
-
-
-                        <option
-                            value="<?php echo htmlspecialchars(
-                                $status["statusID"]
-                            ); ?>"
-                            <?php
-                            if (
-                                $groupStatus !== "Mixed" &&
-                                $status["statusName"] === $groupStatus
-                            ) {
-                                echo "selected";
-                            }
-                            ?>
-                        >
-
-                            <?php echo htmlspecialchars(
-                                $status["statusName"]
-                            ); ?>
-
-                        </option>
-
-
-                    <?php endforeach; ?>
-
-
-                </select>
-
-
-                <button
-                    type="button"
-                    class="resolve-btn"
-                    id="markResolvedBtn"
-                >
-
-                    <i class="bi bi-check-lg"></i>
-
-                    Mark as Resolved
-
-                </button>
-
-
-            </div>
-
-
-        </div>
-
-
-
-        <!-- =================================================
-             REPORT SUBMISSIONS
-        ================================================== -->
-
-        <div class="duplicate-list">
-
-
-            <?php foreach ($reports as $report): ?>
-
-
-                <article
-                    class="duplicate-report-card"
-                    data-report-id="<?php echo htmlspecialchars(
-                        $report["reportID"]
-                    ); ?>"
-                >
-
-
-                    <!-- =====================================
-                         IMAGE
-                    ====================================== -->
-
-                    <div class="duplicate-report-image">
-
-
-                        <?php if (!empty($report["imagePath"])): ?>
-
-
-                            <img
-                                src="<?php echo htmlspecialchars(
-                                    $report["imagePath"]
-                                ); ?>"
-                                alt="Report image"
-                            >
-
-
-                        <?php else: ?>
-
-
-                            <div class="no-report-image">
-
-                                <i class="bi bi-image"></i>
-
-                            </div>
-
-
-                        <?php endif; ?>
-
-
-                    </div>
-
-
-
-                    <!-- =====================================
-                         REPORT INFORMATION
-                    ====================================== -->
-
-                    <div class="duplicate-report-info">
-
-
-                        <!-- REPORTER -->
-
-                        <div class="reported-by">
-
-                            Reported by
-
-                            <strong>
-
-                                <?php echo htmlspecialchars(
-                                    $report["firstName"]
-                                    . " "
-                                    . $report["lastName"]
-                                ); ?>
-
-                            </strong>
-
-                        </div>
-
-
-
-                        <!-- DATE -->
-
-                        <div class="report-meta">
-
-
-                            <div>
-
-                                <i class="bi bi-calendar3"></i>
-
-                                <?php echo htmlspecialchars(
-                                    formatReportDate(
-                                        $report["dateReported"]
-                                    )
-                                ); ?>
-
-                                •
-
-                                <?php echo htmlspecialchars(
-                                    formatReportTime(
-                                        $report["dateReported"]
-                                    )
-                                ); ?>
-
-                            </div>
-
-
-
-                            <!-- REPORT ID -->
-
-                            <div>
-
-                                <i class="bi bi-card-text"></i>
-
-                                ID:
-
-                                <?php echo htmlspecialchars(
-                                    $report["reportID"]
-                                ); ?>
-
-                            </div>
-
-
-
-                            <!-- LOCATION -->
-
-                            <div>
-
-                                <i class="bi bi-geo-alt"></i>
-
-                                <?php echo htmlspecialchars(
-                                    $report["address"]
-                                ); ?>
-
-                            </div>
-
-
-                        </div>
-
-
-
-                        <!-- DESCRIPTION -->
-
-                        <?php if (
-                            !empty($report["description"])
-                        ): ?>
-
-
-                            <div class="report-description">
-
-                                <strong>
-                                    Description:
-                                </strong>
-
-                                <?php echo htmlspecialchars(
-                                    $report["description"]
-                                ); ?>
-
-                            </div>
-
-
-                        <?php endif; ?>
-
-
-                    </div>
-
-
-                </article>
-
-
-            <?php endforeach; ?>
-
-
-        </div>
-
-
-    </div>
-
-
-
-    <!-- =================================================
-         REPORT DETAILS TAB
-    ================================================== -->
-
-    <div
-        class="report-tab-content"
-        id="detailsTab"
-    >
-
-
-        <div class="details-grid">
-
-
-            <!-- CATEGORY -->
-
-            <div class="detail-item">
-
-                <span>
-                    Category
-                </span>
-
-                <strong>
-
-                    <?php echo htmlspecialchars(
-                        $categoryName
-                    ); ?>
-
-                </strong>
-
-            </div>
-
-
-
-            <!-- LOCATION -->
-
-            <div class="detail-item">
-
-                <span>
-                    Location
-                </span>
-
-                <strong>
-
-                    <?php echo htmlspecialchars(
-                        $address
-                    ); ?>
-
-                </strong>
-
-            </div>
-
-
-
-            <!-- TOTAL -->
-
-            <div class="detail-item">
-
-                <span>
-                    Total Reports
-                </span>
-
-                <strong>
-
-                    <?php echo $totalReports; ?>
-
-                </strong>
-
-            </div>
-
-
-
-            <!-- LATEST REPORT -->
-
-            <div class="detail-item">
-
-                <span>
-                    Latest Report
-                </span>
-
-                <strong>
-
-                    <?php echo htmlspecialchars(
-                        formatReportDate(
-                            $reports[0]["dateReported"]
-                        )
-                    ); ?>
-
-                    •
-
-                    <?php echo htmlspecialchars(
-                        formatReportTime(
-                            $reports[0]["dateReported"]
-                        )
-                    ); ?>
-
-                </strong>
-
-            </div>
-
-
-
-            <!-- LATITUDE -->
-
-            <div class="detail-item">
-
-                <span>
-                    Latitude
-                </span>
-
-                <strong>
-
-                    <?php echo htmlspecialchars(
-                        $firstReport["latitude"]
-                    ); ?>
-
-                </strong>
-
-            </div>
-
-
-
-            <!-- LONGITUDE -->
-
-            <div class="detail-item">
-
-                <span>
-                    Longitude
-                </span>
-
-                <strong>
-
-                    <?php echo htmlspecialchars(
-                        $firstReport["longitude"]
-                    ); ?>
-
-                </strong>
-
-            </div>
-
-
-        </div>
-
-
-    </div>
-
-
-</div>
