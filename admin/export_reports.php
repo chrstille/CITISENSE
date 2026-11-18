@@ -547,220 +547,212 @@ function exportCrossCount(
 }
 
 
+/* SHARED REPORT DATA FOR CSV AND WORD */
+
+$stmt = $conn->prepare(
+    'SELECT
+        r.reportID,
+        r.title,
+        r.description,
+        r.dateReported,
+        c.categoryName,
+        s.statusName,
+        l.address
+     FROM reports r
+     LEFT JOIN categories c
+        ON c.categoryID = r.categoryID
+     LEFT JOIN stats s
+        ON s.statusID = r.statusID
+     LEFT JOIN location l
+        ON l.locationID = r.locationID
+     WHERE r.barangayID = ?
+       AND r.dateReported >= ?
+       AND r.dateReported < ?
+     ORDER BY r.dateReported DESC, r.reportID DESC'
+);
+
+$stmt->bind_param(
+    'sss',
+    $barangayID,
+    $startDate,
+    $endDateString
+);
+
+$stmt->execute();
+
+$detailedReports = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+$stmt->close();
+
+$rangeStartLabel = $start->format('F d, Y h:i A');
+
+$rangeEndLabel = $period === 'day'
+    ? $endDate->modify('-1 second')->format('F d, Y h:i A')
+    : $now->format('F d, Y h:i A');
+
 
 /* CSV EXPORT */
-
-
+/* =========================================================
+   CSV EXPORT - SELECTED REPORTING PERIOD ONLY
+========================================================= */
 
 if ($format === 'csv') {
 
     header('Content-Type: text/csv; charset=UTF-8');
 
     header(
-
         'Content-Disposition: attachment; filename="' .
-
         $filename . '.csv"'
-
     );
 
     header('Cache-Control: no-store');
 
-
-
-    $out = fopen('php\://output', 'w');
+    $out = fopen('php://output', 'w');
 
     fwrite($out, "\xEF\xBB\xBF");
 
-
+    // REPORT HEADER
 
     exportCsvRow($out, ['CITISENSE REPORT ANALYTICS']);
-
     exportCsvRow($out, ['Barangay', $barangayName]);
-
-    exportCsvRow($out, ['Reporting Month', $monthLabel]);
-
+    exportCsvRow($out, ['Reporting Period', $periodLabel]);
+    exportCsvRow($out, ['Start Date', $rangeStartLabel]);
+    exportCsvRow($out, ['End Date', $rangeEndLabel]);
     exportCsvRow($out, ['Generated At', $generatedAt]);
-
     exportCsvRow($out, []);
 
-
+    // REPORT OVERVIEW
 
     exportCsvRow($out, ['REPORT OVERVIEW']);
 
-    exportCsvRow($out, ['All-Time Reports', $allTimeTotal]);
-
-    exportCsvRow($out, ['Current-Month Reports', $monthlyTotal]);
+    exportCsvRow($out, [
+        'Total Reports Submitted',
+        $monthlyTotal
+    ]);
 
     exportCsvRow($out, []);
 
+    // CATEGORY ANALYTICS
 
+    exportCsvRow($out, ['CATEGORY ANALYTICS']);
 
-    foreach ([
+    exportCsvRow($out, [
+        'Category',
+        'Reports',
+        'Percentage'
+    ]);
 
-        'allTime' => [
+    foreach ($categoryRows as $row) {
 
-            'title' => 'ALL-TIME ANALYTICS',
+        $count = (int) $row['monthlyCount'];
 
-            'countKey' => 'allTimeCount',
+        exportCsvRow($out, [
+            $row['categoryName'],
+            $count,
+            exportPercent($count, $monthlyTotal)
+        ]);
+    }
 
-            'total' => $allTimeTotal
+    exportCsvRow($out, []);
 
-        ],
+    // STATUS ANALYTICS
 
-        'monthly' => [
+    exportCsvRow($out, ['STATUS ANALYTICS']);
 
-            'title' => 'MONTHLY ANALYTICS - ' . $monthLabel,
+    exportCsvRow($out, [
+        'Status',
+        'Reports',
+        'Percentage'
+    ]);
 
-            'countKey' => 'monthlyCount',
+    foreach ($statusRows as $row) {
 
-            'total' => $monthlyTotal
+        $count = (int) $row['monthlyCount'];
 
-        ]
+        exportCsvRow($out, [
+            $row['statusName'],
+            $count,
+            exportPercent($count, $monthlyTotal)
+        ]);
+    }
 
-    ] as $period => $config) {
+    exportCsvRow($out, []);
 
+    // CATEGORY BY STATUS
 
+    exportCsvRow($out, ['CATEGORY BY STATUS']);
 
-        exportCsvRow($out, [$config['title']]);
+    $headers = ['Category'];
 
-        exportCsvRow($out, []);
+    foreach ($statusRows as $status) {
+        $headers[] = $status['statusName'];
+    }
 
+    $headers[] = 'Total';
 
+    exportCsvRow($out, $headers);
 
-        exportCsvRow($out, ['CATEGORY ANALYTICS']);
+    foreach ($categoryRows as $category) {
 
-        exportCsvRow($out, ['Category', 'Reports', 'Percentage']);
-
-
-
-        foreach ($categoryRows as $row) {
-
-            $count = (int) $row[$config['countKey']];
-
-
-
-            exportCsvRow($out, [
-
-                $row['categoryName'],
-
-                $count,
-
-                exportPercent($count, $config['total'])
-
-            ]);
-
-        }
-
-
-
-        exportCsvRow($out, []);
-
-        exportCsvRow($out, ['STATUS ANALYTICS']);
-
-        exportCsvRow($out, ['Status', 'Reports', 'Percentage']);
-
-
-
-        foreach ($statusRows as $row) {
-
-            $count = (int) $row[$config['countKey']];
-
-
-
-            exportCsvRow($out, [
-
-                $row['statusName'],
-
-                $count,
-
-                exportPercent($count, $config['total'])
-
-            ]);
-
-        }
-
-
-
-        exportCsvRow($out, []);
-
-        exportCsvRow($out, ['CATEGORY BY STATUS']);
-
-
-
-        $headers = ['Category'];
-
-
+        $values = [$category['categoryName']];
 
         foreach ($statusRows as $status) {
 
-            $headers[] = $status['statusName'];
-
+            $values[] = exportCrossCount(
+                $crossCounts,
+                (string) $category['categoryID'],
+                (string) $status['statusID'],
+                'monthly'
+            );
         }
 
+        $values[] = (int) $category['monthlyCount'];
 
-
-        $headers[] = 'Total';
-
-
-
-        exportCsvRow($out, $headers);
-
-
-
-        foreach ($categoryRows as $category) {
-
-            $values = [$category['categoryName']];
-
-
-
-            foreach ($statusRows as $status) {
-
-                $values[] = exportCrossCount(
-
-                    $crossCounts,
-
-                    (string) $category['categoryID'],
-
-                    (string) $status['statusID'],
-
-                    $period
-
-                );
-
-            }
-
-
-
-            $values[] = $category[$config['countKey']];
-
-
-
-            exportCsvRow($out, $values);
-
-        }
-
-
-
-        exportCsvRow($out, []);
-
-        exportCsvRow($out, []);
-
+        exportCsvRow($out, $values);
     }
 
+    exportCsvRow($out, []);
 
+    // DETAILED REPORT RECORDS
+
+    exportCsvRow($out, ['DETAILED REPORT RECORDS']);
+
+    exportCsvRow($out, [
+        'Report ID',
+        'Title',
+        'Category',
+        'Location',
+        'Status',
+        'Date Reported'
+    ]);
+
+    if (empty($detailedReports)) {
+
+        exportCsvRow($out, [
+            'No reports were submitted during this period.'
+        ]);
+
+    } else {
+
+        foreach ($detailedReports as $report) {
+
+            exportCsvRow($out, [
+                $report['reportID'],
+                $report['title'],
+                $report['categoryName'] ?? '',
+                $report['address'] ?? '',
+                $report['statusName'] ?? '',
+                $report['dateReported']
+            ]);
+        }
+    }
 
     fclose($out);
 
     exit;
-
 }
 
-
-
 /* PDF / WORD LIBRARIES */
-
-
 
 $autoload = __DIR__ . '/../vendor/autoload.php';
 
@@ -782,350 +774,267 @@ require_once $autoload;
 
 /* WORD EXPORT */
 
-
+/* =========================================================
+   WORD EXPORT - SELECTED REPORTING PERIOD ONLY
+========================================================= */
 
 if ($format === 'docx') {
 
     $word = new \PhpOffice\PhpWord\PhpWord();
 
-
-
     $word->setDefaultFontName('Arial');
-
     $word->setDefaultFontSize(9);
 
-
-
     $section = $word->addSection([
-
         'orientation' => 'landscape',
-
         'marginTop' => 850,
-
         'marginBottom' => 850
-
     ]);
 
-
+    // REPORT HEADER
 
     $section->addTitle('CitiSense Report Analytics', 1);
 
-    $section->addText($barangayName);
+    $section->addText('Barangay: ' . $barangayName);
 
-    $section->addText('Reporting Month: ' . $monthLabel);
+    $section->addText('Reporting Period: ' . $periodLabel);
+
+    $section->addText(
+        'Date Range: ' .
+        $rangeStartLabel . ' to ' . $rangeEndLabel
+    );
 
     $section->addText('Generated: ' . $generatedAt);
 
-
+    // REPORT OVERVIEW
 
     $section->addTitle('Report Overview', 2);
 
-    $section->addText('All-Time Reports: ' . $allTimeTotal);
+    $section->addText(
+        'Total Reports Submitted: ' . $monthlyTotal,
+        ['bold' => true]
+    );
 
-    $section->addText('Current-Month Reports: ' . $monthlyTotal);
+    // CATEGORY ANALYTICS
 
+    $section->addTitle('Category Analytics', 2);
 
+    $table = $section->addTable([
+        'borderSize' => 5,
+        'borderColor' => 'CBD5E1',
+        'cellMargin' => 80
+    ]);
 
-    foreach ([
+    $table->addRow();
 
-        'allTime' => [
+    foreach (['Category', 'Reports', 'Percentage'] as $heading) {
 
-            'title' => 'All-Time Analytics',
+        $table->addCell(3000)->addText(
+            $heading,
+            ['bold' => true]
+        );
+    }
 
-            'key' => 'allTimeCount',
+    foreach ($categoryRows as $row) {
 
-            'total' => $allTimeTotal
-
-        ],
-
-        'monthly' => [
-
-            'title' => 'Monthly Analytics - ' . $monthLabel,
-
-            'key' => 'monthlyCount',
-
-            'total' => $monthlyTotal
-
-        ]
-
-    ] as $period => $config) {
-
-
-
-        $section->addTitle($config['title'], 2);
-
-
-
-        $section->addTitle('Category Analytics', 3);
-
-
-
-        $table = $section->addTable([
-
-            'borderSize' => 5,
-
-            'borderColor' => 'CBD5E1',
-
-            'cellMargin' => 80
-
-        ]);
-
-
+        $count = (int) $row['monthlyCount'];
 
         $table->addRow();
 
+        $table->addCell(3000)->addText($row['categoryName']);
 
+        $table->addCell(3000)->addText((string) $count);
 
-        foreach (['Category', 'Reports', 'Percentage'] as $heading) {
+        $table->addCell(3000)->addText(
+            exportPercent($count, $monthlyTotal)
+        );
+    }
 
-            $table->addCell(3000)->addText(
+    // STATUS ANALYTICS
 
-                $heading,
+    $section->addTitle('Status Analytics', 2);
 
-                ['bold' => true]
+    $table = $section->addTable([
+        'borderSize' => 5,
+        'borderColor' => 'CBD5E1',
+        'cellMargin' => 80
+    ]);
 
-            );
+    $table->addRow();
 
-        }
+    foreach (['Status', 'Reports', 'Percentage'] as $heading) {
 
+        $table->addCell(3000)->addText(
+            $heading,
+            ['bold' => true]
+        );
+    }
 
+    foreach ($statusRows as $row) {
 
-        foreach ($categoryRows as $row) {
-
-            $count = (int) $row[$config['key']];
-
-
-
-            $table->addRow();
-
-            $table->addCell(3000)->addText($row['categoryName']);
-
-            $table->addCell(3000)->addText((string) $count);
-
-            $table->addCell(3000)->addText(
-
-                exportPercent($count, $config['total'])
-
-            );
-
-        }
-
-
-
-        $section->addTitle('Status Analytics', 3);
-
-
-
-        $table = $section->addTable([
-
-            'borderSize' => 5,
-
-            'borderColor' => 'CBD5E1',
-
-            'cellMargin' => 80
-
-        ]);
-
-
+        $count = (int) $row['monthlyCount'];
 
         $table->addRow();
 
+        $table->addCell(3000)->addText($row['statusName']);
 
+        $table->addCell(3000)->addText((string) $count);
 
-        foreach (['Status', 'Reports', 'Percentage'] as $heading) {
+        $table->addCell(3000)->addText(
+            exportPercent($count, $monthlyTotal)
+        );
+    }
 
-            $table->addCell(3000)->addText(
+    // CATEGORY BY STATUS
 
-                $heading,
+    $section->addTitle('Category by Status', 2);
 
-                ['bold' => true]
+    $table = $section->addTable([
+        'borderSize' => 5,
+        'borderColor' => 'CBD5E1',
+        'cellMargin' => 60
+    ]);
 
-            );
+    $table->addRow();
 
-        }
+    $table->addCell(2600)->addText(
+        'Category',
+        ['bold' => true]
+    );
 
+    foreach ($statusRows as $status) {
 
+        $table->addCell(1500)->addText(
+            $status['statusName'],
+            ['bold' => true]
+        );
+    }
 
-        foreach ($statusRows as $row) {
+    $table->addCell(1200)->addText(
+        'Total',
+        ['bold' => true]
+    );
 
-            $count = (int) $row[$config['key']];
-
-
-
-            $table->addRow();
-
-            $table->addCell(3000)->addText($row['statusName']);
-
-            $table->addCell(3000)->addText((string) $count);
-
-            $table->addCell(3000)->addText(
-
-                exportPercent($count, $config['total'])
-
-            );
-
-        }
-
-
-
-        $section->addTitle('Category by Status', 3);
-
-
-
-        $table = $section->addTable([
-
-            'borderSize' => 5,
-
-            'borderColor' => 'CBD5E1',
-
-            'cellMargin' => 60
-
-        ]);
-
-
+    foreach ($categoryRows as $category) {
 
         $table->addRow();
 
         $table->addCell(2600)->addText(
-
-            'Category',
-
-            ['bold' => true]
-
+            $category['categoryName']
         );
-
-
 
         foreach ($statusRows as $status) {
 
-            $table->addCell(1500)->addText(
-
-                $status['statusName'],
-
-                ['bold' => true]
-
+            $count = exportCrossCount(
+                $crossCounts,
+                (string) $category['categoryID'],
+                (string) $status['statusID'],
+                'monthly'
             );
 
+            $table->addCell(1500)->addText((string) $count);
         }
 
-
-
         $table->addCell(1200)->addText(
+            (string) $category['monthlyCount']
+        );
+    }
 
-            'Total',
+    // DETAILED REPORT RECORDS
 
-            ['bold' => true]
+    $section->addTitle('Detailed Report Records', 2);
 
+    if (empty($detailedReports)) {
+
+        $section->addText(
+            'No reports were submitted during this reporting period.'
         );
 
+    } else {
 
+        $table = $section->addTable([
+            'borderSize' => 5,
+            'borderColor' => 'CBD5E1',
+            'cellMargin' => 60
+        ]);
 
-        foreach ($categoryRows as $category) {
+        $table->addRow();
+
+        $columns = [
+            'Report ID',
+            'Title',
+            'Category',
+            'Location',
+            'Status',
+            'Date Reported'
+        ];
+
+        foreach ($columns as $heading) {
+
+            $table->addCell(1700)->addText(
+                $heading,
+                ['bold' => true]
+            );
+        }
+
+        foreach ($detailedReports as $report) {
 
             $table->addRow();
 
-            $table->addCell(2600)->addText(
+            $values = [
+                $report['reportID'],
+                $report['title'],
+                $report['categoryName'] ?? '',
+                $report['address'] ?? '',
+                $report['statusName'] ?? '',
+                $report['dateReported']
+            ];
 
-                $category['categoryName']
+            foreach ($values as $value) {
 
-            );
-
-
-
-            foreach ($statusRows as $status) {
-
-                $count = exportCrossCount(
-
-                    $crossCounts,
-
-                    (string) $category['categoryID'],
-
-                    (string) $status['statusID'],
-
-                    $period
-
+                $table->addCell(1700)->addText(
+                    (string) ($value ?? '')
                 );
-
-
-
-                $table->addCell(1500)->addText((string) $count);
-
             }
-
-
-
-            $table->addCell(1200)->addText(
-
-                (string) $category[$config['key']]
-
-            );
-
         }
-
-
-
-        $section->addTextBreak();
-
     }
 
-
+    // GENERATE WORD FILE
 
     $writer = \PhpOffice\PhpWord\IOFactory::createWriter(
-
         $word,
-
         'Word2007'
-
     );
 
-
-
     $tmp = tempnam(sys_get_temp_dir(), 'citisense_');
-
-
 
     if ($tmp === false) {
 
         http_response_code(500);
 
-        exit('Unable to create export file.');
-
+        exit('Unable to create Word export file.');
     }
-
-
 
     $writer->save($tmp);
 
-
-
     header(
-
         'Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-
     );
 
     header(
-
         'Content-Disposition: attachment; filename="' .
-
         $filename . '.docx"'
-
     );
 
     header('Content-Length: ' . filesize($tmp));
-
     header('Cache-Control: no-store');
-
-
 
     readfile($tmp);
 
     unlink($tmp);
 
     exit;
-
 }
-
 
 
 /* PDF EXPORT */
@@ -1337,34 +1246,9 @@ function exportAnalyticsHtml(
 }
 
 
-
 /* =========================================================
    PDF: selected reporting period only
    ========================================================= */
-
-// Fetch only individual reports submitted in the selected period.
-// All values come from the database for the logged-in admin's barangay.
-$stmt = $conn->prepare(
-    'SELECT r.reportID, r.title, r.description, r.dateReported,
-            c.categoryName, s.statusName, l.address
-     FROM reports r
-     LEFT JOIN categories c ON c.categoryID = r.categoryID
-     LEFT JOIN stats s ON s.statusID = r.statusID
-     LEFT JOIN location l ON l.locationID = r.locationID
-     WHERE r.barangayID = ?
-       AND r.dateReported >= ?
-       AND r.dateReported < ?
-     ORDER BY r.dateReported DESC, r.reportID DESC'
-);
-$stmt->bind_param('sss', $barangayID, $startDate, $endDateString);
-$stmt->execute();
-$detailedReports = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
-
-$rangeStartLabel = $start->format('F d, Y h:i A');
-$rangeEndLabel = $period === 'day'
-    ? $endDate->modify('-1 second')->format('F d, Y h:i A')
-    : $now->format('F d, Y h:i A');
 
 $html = '<!DOCTYPE html>
 <html lang="en">
