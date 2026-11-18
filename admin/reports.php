@@ -615,78 +615,165 @@ $stmt->close();
 
     <!-- FILTERS -->
 
-    <form method="GET" action="reports.php" id="reportsFilterForm" class="analytics-filters reports-filters">
+    <form
+            class="analytics-filters"
+            method="GET"
+        >
 
-    <!-- Date range -->
-    <div class="analytics-filter reports-date-filter">
-            <i class="fa-regular fa-calendar-days"></i>
 
-            <input
-                type="date"
-                name="startDate"
-                value="<?= reportsEscape($startDate) ?>"
-                aria-label="Start date"
+            <div class="analytics-filter">
+
+                <i class="bi bi-calendar3"></i>
+
+                <input
+                    type="date"
+                    name="start_date"
+                    value="<?php
+                        echo htmlspecialchars(
+                            $startDate
+                        );
+                    ?>"
+                >
+
+                <span>
+                    -
+                </span>
+
+                <input
+                    type="date"
+                    name="end_date"
+                    value="<?php
+                        echo htmlspecialchars(
+                            $endDate
+                        );
+                    ?>"
+                >
+
+            </div>
+
+            <div class="analytics-filter">
+
+                <i class="bi bi-tags"></i>
+
+                <select
+                    name="categoryID"
+                >
+
+                    <option value="">
+                        All Categories
+                    </option>
+
+
+                    <?php foreach ($categories as $category): ?>
+
+                        <option
+                            value="<?php
+                                echo htmlspecialchars(
+                                    $category["categoryID"]
+                                );
+                            ?>"
+                            <?php
+                            echo
+                                $selectedCategory
+                                === $category["categoryID"]
+                                    ? "selected"
+                                    : "";
+                            ?>
+                        >
+
+                            <?php
+                            echo htmlspecialchars(
+                                $category["categoryName"]
+                            );
+                            ?>
+
+                        </option>
+
+                    <?php endforeach; ?>
+
+                </select>
+
+            </div>
+
+            <div class="analytics-filter">
+
+                <i class="bi bi-filter"></i>
+
+                <select
+                    name="statusID"
+                >
+
+                    <option value="">
+                        All Statuses
+                    </option>
+
+
+                    <?php foreach ($statuses as $status): ?>
+
+                        <?php
+                        // Do not display rejected
+                        // if it exists in an older database.
+                        if (
+                            strtolower(
+                                trim(
+                                    $status["statusName"]
+                                )
+                            ) === "rejected"
+                        ) {
+                            continue;
+                        }
+                        ?>
+
+                        <option
+                            value="<?php
+                                echo htmlspecialchars(
+                                    $status["statusID"]
+                                );
+                            ?>"
+                            <?php
+                            echo
+                                $selectedStatus
+                                === $status["statusID"]
+                                    ? "selected"
+                                    : "";
+                            ?>
+                        >
+
+                            <?php
+                            echo htmlspecialchars(
+                                $status["statusName"]
+                            );
+                            ?>
+
+                        </option>
+
+                    <?php endforeach; ?>
+
+                </select>
+
+            </div>
+
+            <button
+                type="submit"
+                class="analytics-filter-button"
             >
 
-            <span class="date-separator">-</span>
+                <i class="bi bi-sliders"></i>
 
-            <input
-                type="date"
-                name="endDate"
-                value="<?= reportsEscape($endDate) ?>"
-                aria-label="End date"
+                Apply Filters
+
+            </button>
+
+            <a
+                href="reports.php"
+                class="analytics-reset-button"
             >
-        </div>
+                Reset
+            </a>
 
-        <!-- Category -->
-        <div class="analytics-filter reports-select-filter">
-            <i class="fa-solid fa-tags"></i>
+        </form>
 
-            <select name="category" aria-label="Filter by category">
-                <option value="">All Categories</option>
-
-                <?php foreach ($categories as $category): ?>
-                    <option
-                        value="<?= reportsEscape($category['categoryID']) ?>"
-                        <?= $selectedCategory === (string) $category['categoryID'] ? 'selected' : '' ?>
-                    >
-                        <?= reportsEscape($category['categoryName']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-
-        <!-- Status -->
-        <div class="analytics-filter reports-select-filter">
-            <i class="fa-solid fa-filter"></i>
-
-            <select name="status" aria-label="Filter by status">
-                <option value="">All Statuses</option>
-
-                <?php foreach ($statuses as $status): ?>
-                    <option
-                        value="<?= reportsEscape($status['statusID']) ?>"
-                        <?= $selectedStatus === (string) $status['statusID'] ? 'selected' : '' ?>
-                    >
-                        <?= reportsEscape($status['statusName']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-
-        <!-- Apply filters -->
-        <button type="submit" class="analytics-filter-button">
-            <i class="fa-solid fa-sliders"></i>
-            Apply Filters
-        </button>
-
-        <!-- Reset filters -->
-        <a href="reports.php" class="analytics-reset-button">
-            Reset
-        </a>
-    </form>
-
-    <!-- Search bar -->
+    <!-- Search bar 
     <form method="GET" action="reports.php" id="reportsSearchForm" class="reports-search-form">
         <input type="hidden" name="startDate" value="<?= reportsEscape($startDate) ?>">
         <input type="hidden" name="endDate" value="<?= reportsEscape($endDate) ?>">
@@ -703,7 +790,7 @@ $stmt->close();
             placeholder="Search reports..."
             aria-label="Search reports"
         >
-    </form>
+    </form> -->
 
     <!-- REPORTS LAYOUT -->
 
@@ -948,11 +1035,11 @@ $stmt->close();
                 <h2>Quick Actions</h2>
 
                 <div class="quick-actions">
-
+<!-- 
                     <button type="button" id="openExportModal">
                         <i class="bi bi-download"></i>
                         <span>Export Reports</span>
-                    </button>
+                    </button> -->
 
                     <button
                         type="button"
@@ -1021,6 +1108,53 @@ $stmt->close();
 
         </div>
 
+    </div>
+</div>
+
+<!-- GENERATE REPORT MODAL -->
+<div
+    id="generateReportModal"
+    class="export-modal-overlay"
+    hidden
+>
+    <div class="export-modal">
+        <div class="export-modal-header">
+            <h2>Generate Report</h2>
+
+            <button
+                type="button"
+                id="closeGenerateReportModal"
+                aria-label="Close"
+            >
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <p>Select the reporting period for the generated report.</p>
+
+        <form id="generateReportForm">
+
+            <label for="reportPeriod">Reporting Period</label>
+
+            <select
+                id="reportPeriod"
+                name="period"
+                required
+            >
+                <option value="">Select a period</option>
+                <option value="day">Within the Day</option>
+                <option value="3months">Every 3 Months</option>
+                <option value="6months">Every 6 Months</option>
+                <option value="year">Yearly</option>
+            </select>
+
+            <div class="export-modal-options">
+                <button type="submit">
+                    <i class="bi bi-file-earmark-text"></i>
+                    Export Report
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -1577,6 +1711,10 @@ document.addEventListener("keydown", function (event) {
             exportModal.hidden = true;
         }
 
+        if (generateReportModal) {
+            generateReportModal.hidden = true;
+        }
+
         return;
     }
 
@@ -1833,12 +1971,36 @@ document.getElementById("manageReportsButton")
         }
     });
 
-document.getElementById("generateReportButton")
-    ?.addEventListener("click", function () {
-        showReportToast(
-            "Use Export Reports to download the available report formats."
-        );
-    });
+/* =========================================================
+   GENERATE REPORT MODAL
+========================================================= */
+
+const generateReportModal =
+    document.getElementById("generateReportModal");
+
+const generateReportButton =
+    document.getElementById("generateReportButton");
+
+const closeGenerateReportModal =
+    document.getElementById("closeGenerateReportModal");
+
+generateReportButton?.addEventListener("click", function () {
+    if (generateReportModal) {
+        generateReportModal.hidden = false;
+    }
+});
+
+closeGenerateReportModal?.addEventListener("click", function () {
+    if (generateReportModal) {
+        generateReportModal.hidden = true;
+    }
+});
+
+generateReportModal?.addEventListener("click", function (event) {
+    if (event.target === generateReportModal) {
+        generateReportModal.hidden = true;
+    }
+});
 
 /* =========================================================
    STATUS HISTORY HELPER
@@ -1878,6 +2040,51 @@ function loadReportStatusHistory(reportID) {
 
     historyContainer.appendChild(matchingTemplate.cloneNode(true));
 }
+
+
+const generateReportForm =
+    document.getElementById("generateReportForm");
+
+const reportPeriodSelect =
+    document.getElementById("reportPeriod");
+
+const exportReportModal =
+    document.getElementById("exportModal");
+
+generateReportForm?.addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    const selectedPeriod = reportPeriodSelect.value;
+
+    if (!selectedPeriod) {
+        reportPeriodSelect.focus();
+        return;
+    }
+
+    // Pass the selected reporting period to all export links.
+    const exportLinks = exportReportModal.querySelectorAll(
+        ".export-modal-options a"
+    );
+
+    exportLinks.forEach(function (link) {
+        const format = link.getAttribute("href").match(/format=([^&]+)/);
+
+        if (format) {
+            link.href =
+                "export_reports.php?format=" +
+                format[1] +
+                "&period=" +
+                encodeURIComponent(selectedPeriod);
+        }
+    });
+
+    // Close Generate Report modal.
+    generateReportModal.hidden = true;
+
+    // Open Export Reports modal.
+    exportReportModal.hidden = false;
+});
+
 
 </script>
 

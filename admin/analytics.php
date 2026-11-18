@@ -884,8 +884,6 @@ $categoryChartJSON =
 
             </div>
 
-
-
             <div class="analytics-filter">
 
                 <i class="bi bi-filter"></i>
@@ -944,8 +942,6 @@ $categoryChartJSON =
 
             </div>
 
-
-
             <button
                 type="submit"
                 class="analytics-filter-button"
@@ -956,7 +952,6 @@ $categoryChartJSON =
                 Apply Filters
 
             </button>
-
 
             <a
                 href="analytics.php"
@@ -1111,8 +1106,6 @@ $categoryChartJSON =
 
         </section>
 
-
-
         <!-- =================================================
              CHARTS
         ================================================== -->
@@ -1181,8 +1174,6 @@ $categoryChartJSON =
 
 
             </div>
-
-
 
             <!-- =================================================
                  REPORTS BY CATEGORY
@@ -1284,7 +1275,6 @@ $categoryChartJSON =
     </main>
 
 </div>
-
 
 
 <script>

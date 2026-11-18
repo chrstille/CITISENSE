@@ -22,6 +22,7 @@ function overdueResponse(int $code, array $data): void
  * - A report submitted after the original's recorded resolution starts
  *   a new cycle.
  */
+
 function overdueLoadCycles(
     mysqli $conn,
     string $barangayID,

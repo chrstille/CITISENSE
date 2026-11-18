@@ -719,22 +719,6 @@ $unreadNotifications =
 
                 </div>
 
-
-                <div class="view-categories">
-
-                    <a href="#">
-
-                        View All Categories
-
-                        <i
-                            class="bi bi-arrow-right"
-                        ></i>
-
-                    </a>
-
-                </div>
-
-
             </div>
 
 
@@ -781,23 +765,6 @@ $unreadNotifications =
                         </span>
 
                     </div>
-
-
-                    <!-- VIEW FULL HEATMAP -->
-
-                    <a
-                        href="#"
-                        class="full-heatmap"
-                    >
-
-                        View Full Heatmap
-
-                        <i
-                            class="bi bi-box-arrow-up-right"
-                        ></i>
-
-                    </a>
-
 
                 </div>
 

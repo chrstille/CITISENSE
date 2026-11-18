@@ -24,19 +24,59 @@ if (!in_array($format, ['pdf', 'csv', 'docx'], true)) {
     exit('Invalid export format.');
 }
 
+
 $barangayID = (string) $_SESSION['barangay_id'];
 
+$period = strtolower((string) ($_GET['period'] ?? ''));
+
+$periodOptions = [
+    'day' => 'Within the Day',
+    '3months' => 'Every 3 Months',
+    '6months' => 'Every 6 Months',
+    'year' => 'Yearly'
+];
+
+if (!array_key_exists($period, $periodOptions)) {
+    http_response_code(400);
+    exit('Invalid reporting period.');
+}
+
 $now = new DateTimeImmutable('now');
-$monthStart = $now->modify('first day of this month')->setTime(0, 0);
-$nextMonth = $monthStart->modify('+1 month');
+$endDate = $now->modify('+1 second');
 
-$startDate = $monthStart->format('Y-m-d H:i:s');
-$endDate = $nextMonth->format('Y-m-d H:i:s');
+switch ($period) {
+    case 'day':
+        $start = $now->setTime(0, 0, 0);
+        $endDate = $start->modify('+1 day');
+        break;
 
-$monthLabel = $now->format('F Y');
+    case '3months':
+        $start = $now->modify('-3 months');
+        break;
+
+    case '6months':
+        $start = $now->modify('-6 months');
+        break;
+
+    case 'year':
+        $start = $now->modify('-1 year');
+        break;
+}
+
+$startDate = $start->format('Y-m-d H:i:s');
+$endDateString = $endDate->format('Y-m-d H:i:s');
+
+$periodLabel = $periodOptions[$period];
+$monthLabel = $periodLabel;
+
+$rangeEnd = $period === 'day'
+    ? $endDate->modify('-1 second')->format('F d, Y h:i A')
+    : $now->format('F d, Y h:i A');
+
 $generatedAt = $now->format('F d, Y h:i A');
 
-$filename = 'CitiSense_Analytics_' . $now->format('Y_m_d_His');
+$filename = 'CitiSense_Analytics_' .
+    $period . '_' . $now->format('Y_m_d_His');
 
 function exportEscape($value): string
 {
@@ -113,7 +153,12 @@ $stmt = $conn->prepare(
      WHERE barangayID = ?'
 );
 
-$stmt->bind_param('sss', $startDate, $endDate, $barangayID);
+$stmt->bind_param(
+    'sss',
+    $startDate,
+    $endDateString,
+    $barangayID
+);
 $stmt->execute();
 
 $totals = $stmt->get_result()->fetch_assoc();
@@ -144,7 +189,12 @@ $stmt = $conn->prepare(
      ORDER BY c.categoryName ASC'
 );
 
-$stmt->bind_param('sss', $startDate, $endDate, $barangayID);
+$stmt->bind_param(
+    'sss',
+    $startDate,
+    $endDateString,
+    $barangayID
+);
 $stmt->execute();
 
 $categoryRows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -172,7 +222,12 @@ $stmt = $conn->prepare(
      ORDER BY s.statusID ASC'
 );
 
-$stmt->bind_param('sss', $startDate, $endDate, $barangayID);
+$stmt->bind_param(
+    'sss',
+    $startDate,
+    $endDateString,
+    $barangayID
+);
 $stmt->execute();
 
 $statusRows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -197,7 +252,12 @@ $stmt = $conn->prepare(
      GROUP BY r.categoryID, r.statusID'
 );
 
-$stmt->bind_param('sss', $startDate, $endDate, $barangayID);
+$stmt->bind_param(
+    'sss',
+    $startDate,
+    $endDateString,
+    $barangayID
+);
 $stmt->execute();
 
 $crossRows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
