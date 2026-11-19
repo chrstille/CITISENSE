@@ -275,19 +275,6 @@ $reportsJSON = json_encode(
 
             </div>
 
-
-            <div class="header-right">
-
-                <div class="live-indicator">
-
-                    <span class="live-dot"></span>
-
-                    Live Data
-
-                </div>
-
-            </div>
-
         </header>
 
 
