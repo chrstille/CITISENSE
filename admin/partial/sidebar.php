@@ -16,27 +16,21 @@ $currentPage = basename($_SERVER["PHP_SELF"]);
     <aside class="sidebar">
 
 
+        
         <!-- BRAND -->
-
         <div class="sidebar-brand">
 
             <div class="brand-icon">
-
-                <i class="bi bi-buildings"></i>
-
+                <img
+                    src="../css/images/brand.png"
+                    alt="CitiSense Logo"
+                    class="sidebar-logo"
+                >
             </div>
 
-
             <div class="brand-text">
-
-                <h2>
-                    Citi<span>Sense</span>
-                </h2>
-
-                <p>
-                    SELF. REPORT. IMPROVE.
-                </p>
-
+                <h2>Citi<span>Sense</span></h2>
+                <p>SELF. REPORT. IMPROVE.</p>
             </div>
 
         </div>
