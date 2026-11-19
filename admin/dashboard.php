@@ -375,39 +375,6 @@ $unreadNotifications =
 
             </div>
 
-
-            <div class="header-right">
-
-                <button
-                    class="notification-button"
-                    type="button"
-                >
-
-                    <i class="bi bi-bell"></i>
-
-
-                    <?php if (
-                        $unreadNotifications > 0
-                    ): ?>
-
-                        <span
-                            class="notification-badge"
-                        >
-
-                            <?php
-                            echo $unreadNotifications;
-                            ?>
-
-                        </span>
-
-                    <?php endif; ?>
-
-
-                </button>
-
-            </div>
-
-
         </header>
 
 
