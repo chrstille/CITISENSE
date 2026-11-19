@@ -303,98 +303,123 @@ if ($searchQuery !== "") {
 
 $whereSQL = implode(" AND ", $conditions);
 
+
 /* =========================================================
-   REPORT GROUPS
+   REPORT GROUPS - ONE ROW PER CATEGORY
 
-   Each row represents a category at a location.
-   COUNT(r.reportID) counts actual submissions.
-   MAX(r.dateReported) finds the latest matching submission.
-
-   The filtered report IDs are passed to the unchanged
-   reportView.php through the category/location buttons.
+   - One row for each displayed category
+   - Count all matching submitted reports
+   - Show the latest report's location and date
+   - No duplicate rows for different locations
 ========================================================= */
 
+// Get report counts per category
 $sql = "
     SELECT
         c.categoryID,
         c.categoryName,
-        l.locationID,
-        l.address,
-        COUNT(r.reportID) AS totalReports,
-        MAX(r.dateReported) AS latestReport,
-        GROUP_CONCAT(
-            r.reportID
-            ORDER BY r.dateReported DESC, r.reportID DESC
-            SEPARATOR ','
-        ) AS reportIDs
+        COALESCE(g.totalReports, 0) AS totalReports
+
     FROM categories c
-    LEFT JOIN reports r
-        ON r.categoryID = c.categoryID
-        AND r.barangayID = ?
-        AND (? = '' OR r.dateReported >= ?)
-        AND (? = '' OR r.dateReported < DATE_ADD(?, INTERVAL 1 DAY))
-        AND (? = '' OR r.categoryID = ?)
-        AND (? = '' OR r.statusID = ?)
-        AND (
-            ? = ''
-            OR EXISTS (
-                SELECT 1
-                FROM location sl
-                WHERE sl.locationID = r.locationID
-                  AND sl.address LIKE ?
-            )
-            OR EXISTS (
-                SELECT 1
-                FROM categories sc
-                WHERE sc.categoryID = r.categoryID
-                  AND sc.categoryName LIKE ?
-            )
-            OR COALESCE(r.title, '') LIKE ?
-            OR COALESCE(r.description, '') LIKE ?
-            OR CAST(r.reportID AS CHAR) LIKE ?
-        )
-    LEFT JOIN location l
-        ON l.locationID = r.locationID
-    GROUP BY
-        c.categoryID,
+
+    LEFT JOIN (
+        SELECT
+            r.categoryID,
+            COUNT(r.reportID) AS totalReports
+        FROM reports r
+        WHERE $whereSQL
+        GROUP BY r.categoryID
+    ) g
+        ON g.categoryID = c.categoryID
+
+    WHERE c.categoryName IN (
+        'Waste Accumulation',
+        'Potholes',
+        'Others'
+    )
+
+    ORDER BY FIELD(
         c.categoryName,
-        l.locationID,
-        l.address
-    ORDER BY
-        c.categoryID ASC,
-        l.locationID ASC
+        'Waste Accumulation',
+        'Potholes',
+        'Others'
+    )
 ";
 
-$startDateValue = $startDate;
-$endDateValue = $endDate;
-$categoryValue = $selectedCategory;
-$statusValue = $selectedStatus;
-$searchLike = "%" . $searchQuery . "%";
-
 $stmt = reportsPrepare($conn, $sql);
-
-$stmt->bind_param(
-    "sssssssssssssss",
-    $barangayID,
-    $startDateValue,
-    $startDateValue,
-    $endDateValue,
-    $endDateValue,
-    $categoryValue,
-    $categoryValue,
-    $statusValue,
-    $statusValue,
-    $searchQuery,
-    $searchLike,
-    $searchLike,
-    $searchLike,
-    $searchLike,
-    $searchLike
-);
-
+$stmt->bind_param($types, ...$params);
 $stmt->execute();
 
 $reportGroups = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+
+// Prepare lookup for each category
+$categoryIndexes = [];
+
+foreach ($reportGroups as $index => &$group) {
+
+    $group["locationID"] = "";
+    $group["address"] = null;
+    $group["latestReport"] = null;
+
+    $categoryIndexes[(string) $group["categoryID"]] = $index;
+}
+unset($group);
+
+
+// Get the latest matching submission for each category
+$sql = "
+    SELECT
+        r.categoryID,
+        r.locationID,
+        l.address,
+        r.dateReported
+
+    FROM reports r
+
+    LEFT JOIN location l
+        ON l.locationID = r.locationID
+
+    WHERE $whereSQL
+
+    ORDER BY
+        r.dateReported DESC,
+        r.reportID DESC
+";
+
+$stmt = reportsPrepare($conn, $sql);
+$stmt->bind_param($types, ...$params);
+$stmt->execute();
+
+$latestResults = $stmt->get_result();
+
+$foundLatest = [];
+
+while ($row = $latestResults->fetch_assoc()) {
+
+    $categoryID = (string) $row["categoryID"];
+
+    if (
+        !isset($categoryIndexes[$categoryID]) ||
+        isset($foundLatest[$categoryID])
+    ) {
+        continue;
+    }
+
+    $index = $categoryIndexes[$categoryID];
+
+    $reportGroups[$index]["locationID"] =
+        $row["locationID"] ?? "";
+
+    $reportGroups[$index]["address"] =
+        $row["address"] ?? null;
+
+    $reportGroups[$index]["latestReport"] =
+        $row["dateReported"];
+
+    $foundLatest[$categoryID] = true;
+}
 
 $stmt->close();
 
