@@ -125,8 +125,9 @@ $categories = [];
 $stmt = reportsPrepare(
     $conn,
     "SELECT categoryID, categoryName
-     FROM categories
-     ORDER BY categoryName ASC"
+        FROM categories
+        WHERE categoryName <> 'Blocked Drainage'
+        ORDER BY categoryName ASC"
 );
 
 $stmt->execute();
@@ -178,6 +179,7 @@ if (
 
 if (
     $selectedStatus !== "" &&
+    $selectedStatus !== "all" &&
     !in_array($selectedStatus, $validStatusIDs, true)
 ) {
     $selectedStatus = "";
@@ -218,7 +220,10 @@ if ($selectedCategory !== "") {
 }
 
 // Status
-if ($selectedStatus !== "") {
+if (
+    $selectedStatus !== "" &&
+    $selectedStatus !== "all"
+) {
     $conditions[] = "r.statusID = ?";
     $types .= "s";
     $params[] = $selectedStatus;
@@ -258,51 +263,6 @@ if ($searchQuery !== "") {
 
 // Final WHERE clause for queries using these conditions.
 $whereSQL = implode(" AND ", $conditions);
-
-/* =========================================================
-   FINALIZE FILTER CONDITIONS
-========================================================= */
-
-$whereSQL = implode(" AND ", $conditions);
-
-// ADD THE SEARCH CONDITION HERE
-if ($searchQuery !== "") {
-    $conditions[] = "(
-        EXISTS (
-            SELECT 1
-            FROM categories sc
-            WHERE sc.categoryID = r.categoryID
-              AND sc.categoryName LIKE ?
-        )
-        OR EXISTS (
-            SELECT 1
-            FROM location sl
-            WHERE sl.locationID = r.locationID
-              AND sl.address LIKE ?
-        )
-        OR COALESCE(r.title, '') LIKE ?
-        OR COALESCE(r.description, '') LIKE ?
-        OR CAST(r.reportID AS CHAR) LIKE ?
-    )";
-
-    $searchLike = "%" . $searchQuery . "%";
-
-    $types .= "sssss";
-
-    array_push(
-        $params,
-        $searchLike,
-        $searchLike,
-        $searchLike,
-        $searchLike,
-        $searchLike
-    );
-}
-
-// Keep this AFTER all filter conditions.
-
-$whereSQL = implode(" AND ", $conditions);
-
 
 /* =========================================================
    REPORT GROUPS - ONE ROW PER CATEGORY
@@ -793,8 +753,11 @@ $stmt->close();
                 href="reports.php"
                 class="analytics-reset-button"
             >
+
                 Reset
+
             </a>
+
 
         </form>
 
@@ -817,17 +780,37 @@ $stmt->close();
         >
     </form> -->
 
-    <!-- REPORTS LAYOUT -->
+                <!-- REPORTS LAYOUT -->
 
-    <section class="reports-layout">
+                <section class="reports-layout">
 
-        <div class="reports-list-card">
+                <div class="reports-list-card">
 
-            <div class="reports-card-header">
-                <h2>
-                    Matching Reports
-                    <span>(<?= $totalReports ?>)</span>
-                </h2>
+                    <div class="reports-table-wrapper">
+                        <table class="reports-table">
+
+                <?php
+                $overviewFilters = array_filter([
+                    "start_date" => $startDate,
+                    "end_date" => $endDate,
+                    "categoryID" => $selectedCategory,
+                    "statusID" => $selectedStatus
+                ], static fn($value) => $value !== "");
+
+                $overviewURL = "reportStatusOverview.php";
+
+                if (!empty($overviewFilters)) {
+                    $overviewURL .= "?" . http_build_query($overviewFilters);
+                }
+                ?>
+
+                <div class="reports-card-header">
+                    <h2>
+                        Matching Reports
+                        <span>(<?= $totalReports ?>)</span>
+                    </h2>
+                </div>
+
             </div>
 
             <div class="reports-table-wrapper">
@@ -846,11 +829,20 @@ $stmt->close();
                     <tbody id="reportsTableBody">
 
                     <?php if (!empty($reportGroups)): ?>
-
+    
                         <?php foreach ($reportGroups as $report): ?>
 
                             <?php
                             $categoryName = (string) $report["categoryName"];
+
+                            $categoryBoardFilters = [
+                                "categoryID" => (string) $report["categoryID"]
+                            ];
+
+                            $categoryBoardURL =
+                                "reportStatusOverview.php?" .
+                                http_build_query($categoryBoardFilters);
+
                             $address = (string) ($report["address"] ?? "");
                             $locationID = (string) ($report["locationID"] ?? "");
                             $latestDate = $report["latestReport"] ?? null;
@@ -864,11 +856,15 @@ $stmt->close();
                             );
                             ?>
 
+
                             <tr
-                                class="report-row"
+                                class="report-row clickable-report-row"
                                 data-search="<?= reportsEscape($searchText) ?>"
                                 data-category-id="<?= reportsEscape($report["categoryID"]) ?>"
                                 data-location-id="<?= reportsEscape($locationID) ?>"
+                                data-overview-url="<?= reportsEscape($categoryBoardURL) ?>"
+                                tabindex="0"
+                                aria-label="View <?= reportsEscape($categoryName) ?> report overview"
                             >
 
                                 <td>
@@ -1074,14 +1070,6 @@ $stmt->close();
                         <span>Generate Report</span>
                     </button>
 
-                    <button
-                        type="button"
-                        id="manageReportsButton"
-                    >
-                        <i class="bi bi-grid"></i>
-                        <span>Manage Reports</span>
-                    </button>
-
                 </div>
             </div>
 
@@ -1222,6 +1210,48 @@ $stmt->close();
    The PHP filters already apply on the server. This search
    narrows the rows currently displayed without another reload.
 ========================================================= */
+
+
+/* =============================================
+   CLICKABLE CATEGORY ROWS
+============================================= */
+
+document.querySelectorAll(".clickable-report-row").forEach(row => {
+
+    function openCategoryOverview() {
+        const url = row.dataset.overviewUrl;
+
+        if (url) {
+            window.location.href = url;
+        }
+    }
+
+    row.addEventListener("click", function (event) {
+
+        // Preserve the existing eye action and other controls.
+        if (
+            event.target.closest(
+                ".view-report-btn, a, button, input, select"
+            )
+        ) {
+            return;
+        }
+
+        openCategoryOverview();
+    });
+
+    row.addEventListener("keydown", function (event) {
+
+        if (
+            event.target === row &&
+            (event.key === "Enter" || event.key === " ")
+        ) {
+            event.preventDefault();
+            openCategoryOverview();
+        }
+    });
+
+});
 
 const searchInput = document.getElementById("reportSearch");
 
@@ -1423,7 +1453,7 @@ document.querySelectorAll(".view-report-btn").forEach(button => {
 
         const loaded = await loadReportDrawer(
             this.dataset.categoryId,
-            this.dataset.locationId
+            ""
         );
 
         if (loaded) {
@@ -1550,16 +1580,19 @@ function formatReportTimeline(value) {
     });
 }
 
+
 /* =========================================================
    READ-ONLY INDIVIDUAL REPORT DETAILS
 ========================================================= */
 
 function openReadOnlyReport(card) {
+
     const root = getReportRoot();
+    if (!root) return;
 
-    if (!root || !card) return;
-
-    const detailScreen = root.querySelector("#individualReportScreen");
+    const detailScreen = root.querySelector(
+        "#individualReportScreen"
+    );
 
     if (!detailScreen) return;
 
@@ -1582,6 +1615,7 @@ function openReadOnlyReport(card) {
     };
 
     Object.entries(fields).forEach(([id, value]) => {
+
         const element = root.querySelector("#" + id);
 
         if (element) {
@@ -1589,114 +1623,203 @@ function openReadOnlyReport(card) {
         }
     });
 
-    const timelineContainer =
-        root.querySelector("#detailTimelineContainer");
+    /* REPORT TIMELINE */
 
-    const timelineText = root.querySelector("#detailTimeline");
+    const timelineContainer = root.querySelector(
+        "#detailTimelineContainer"
+    );
+
+    const timelineText = root.querySelector(
+        "#detailTimeline"
+    );
 
     if (timelineContainer && timelineText) {
+
         const timeline = card.dataset.timeline || "";
 
-        timelineText.textContent = formatReportTimeline(timeline);
+        timelineText.textContent =
+            formatReportTimeline(timeline);
+
         timelineContainer.hidden = !timeline;
     }
 
-    const imageContainer = root.querySelector("#detailImageContainer");
+    /* REPORT IMAGE */
+
+    const imageContainer = root.querySelector(
+        "#detailImageContainer"
+    );
+
     const image = root.querySelector("#detailImage");
 
     if (imageContainer && image) {
+
         if (card.dataset.image) {
+
             image.src = card.dataset.image;
             imageContainer.hidden = false;
+
         } else {
+
             image.removeAttribute("src");
             imageContainer.hidden = true;
         }
     }
 
-    const historyTarget = root.querySelector("#detailStatusHistory");
-    const reportID = card.dataset.reportId;
+    /* ==========================================
+       STATUS HISTORY VISIBILITY
+    ========================================== */
 
-    const historyTemplate = Array.from(
-        root.querySelectorAll("[data-history-report-id]")
-    ).find(node => node.dataset.historyReportId === reportID);
+    const isPending =
+        card.dataset.statusId === "STAT001";
+
+    const historyPanel = root.querySelector(
+        "#detailStatusHistoryPanel"
+    );
+
+    const historyTarget = root.querySelector(
+        "#detailStatusHistory"
+    );
+
+    if (historyPanel) {
+
+        historyPanel.hidden = isPending;
+
+        historyPanel.style.display =
+            isPending ? "none" : "";
+    }
 
     if (historyTarget) {
+
         historyTarget.replaceChildren();
 
-        if (historyTemplate) {
-            const nodes = Array.from(historyTemplate.childNodes)
-                .map(node => node.cloneNode(true));
+        if (!isPending) {
 
-            historyTarget.append(...nodes);
-        } else {
-            const emptyMessage = document.createElement("p");
+            const historyTemplate = Array.from(
+                root.querySelectorAll(
+                    "[data-history-report-id]"
+                )
+            ).find(node =>
+                node.dataset.historyReportId ===
+                card.dataset.reportId
+            );
 
-            emptyMessage.className = "manage-empty";
-            emptyMessage.textContent =
-                "No status history recorded for this report.";
+            if (historyTemplate) {
 
-            historyTarget.appendChild(emptyMessage);
+                historyTarget.append(
+                    ...Array.from(
+                        historyTemplate.childNodes
+                    ).map(node =>
+                        node.cloneNode(true)
+                    )
+                );
+
+            } else {
+
+                historyTarget.textContent =
+                    "No status history recorded for this report.";
+            }
         }
     }
 
     showReportScreen(detailScreen);
 }
 
+
 /* =========================================================
-   DRAWER BUTTON HANDLERS
+   REPORT DRAWER CLICK HANDLERS
 ========================================================= */
 
 document.addEventListener("click", function (event) {
+
     const target = event.target;
 
-    if (!(target instanceof Element)) return;
-
-    const root = target.closest(".report-view-content");
+    const root = target.closest(
+        ".report-view-content"
+    );
 
     if (!root) return;
 
+    /* MANAGE REPORTS BUTTON */
+
     if (target.closest("#manageGroupReports")) {
-        showManageCategories();
+
+        const categoryID = root.dataset.categoryId;
+
+        if (categoryID) {
+            showManageCategory(categoryID);
+        }
+
         return;
     }
 
-    const categoryButton = target.closest("[data-manage-category]");
+    /* CATEGORY BUTTON */
+
+    const categoryButton = target.closest(
+        "[data-manage-category]"
+    );
 
     if (categoryButton) {
-        showManageCategory(categoryButton.dataset.manageCategory);
+
+        showManageCategory(
+            categoryButton.dataset.manageCategory
+        );
+
         return;
     }
 
-    const backButton = target.closest("[data-manage-back]");
+    /* BACK BUTTONS */
+
+    const backButton = target.closest(
+        "[data-manage-back]"
+    );
 
     if (backButton) {
-        const destination = backButton.dataset.manageBack;
+
+        const destination =
+            backButton.dataset.manageBack;
 
         if (destination === "group") {
+
             showGroupScreen();
+
         } else if (destination === "categories") {
+
             showManageCategories();
+
         } else if (destination === "category") {
-            showManageCategory(backButton.dataset.categoryId);
+
+            showManageCategory(
+                backButton.dataset.categoryId
+            );
         }
 
         return;
     }
+
+    /* RETURN FROM REPORT DETAILS */
 
     if (target.closest("#backToReportList")) {
+
         if (detailReturnScreen) {
+
             showReportScreen(detailReturnScreen);
+
         } else {
+
             showGroupScreen();
         }
 
         return;
     }
 
-    const card = target.closest(".duplicate-report-card");
+    /* REPORT CARD CLICK */
+
+    const card = target.closest(
+        ".duplicate-report-card"
+    );
 
     if (card) {
+
         if (
             card.dataset.manage === "1" &&
             card.dataset.original === "0"
@@ -1708,15 +1831,24 @@ document.addEventListener("click", function (event) {
             card.dataset.manage === "1" &&
             card.dataset.original === "1"
         ) {
+
             showManageOriginal(card.dataset.reportId);
+
         } else {
+
             openReadOnlyReport(card);
         }
 
         return;
     }
 
-    if (target.closest("[data-close-report-view], #closeReportView")) {
+    /* CLOSE REPORT DRAWER */
+
+    if (
+        target.closest(
+            "[data-close-report-view], #closeReportView"
+        )
+    ) {
         closeReportDrawer();
     }
 });
@@ -1977,24 +2109,6 @@ exportModal?.addEventListener("click", function (event) {
         exportModal.hidden = true;
     }
 });
-
-/* =========================================================
-   QUICK ACTIONS
-
-   The first button opens the same report drawer. The other
-   two show a message rather than silently doing nothing.
-========================================================= */
-
-document.getElementById("manageReportsButton")
-    ?.addEventListener("click", function () {
-        const firstViewButton = document.querySelector(".view-report-btn");
-
-        if (firstViewButton) {
-            firstViewButton.click();
-        } else {
-            showReportToast("There are no reports to manage.", true);
-        }
-    });
 
 /* =========================================================
    GENERATE REPORT MODAL

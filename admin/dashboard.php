@@ -146,6 +146,8 @@ $sql = "SELECT
             ON c.categoryID = r.categoryID
             AND r.barangayID = ?
 
+        WHERE c.categoryName <> 'Blocked Drainage'
+
         GROUP BY
             c.categoryID,
             c.categoryName
