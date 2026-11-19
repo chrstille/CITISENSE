@@ -275,8 +275,8 @@ $reportsJSON = json_encode(
 
             </div>
 
-        </header>
 
+        </header>
 
         <!-- ==========================================
              MAP CARD
@@ -313,7 +313,6 @@ $reportsJSON = json_encode(
                 </div>
 
             </div>
-
 
             <!-- ======================================
                  MAP
