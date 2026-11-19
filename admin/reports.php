@@ -44,11 +44,34 @@ function reportsPrepare(mysqli $conn, string $sql): mysqli_stmt
    FILTER INPUTS
 ========================================================= */
 
-$startDate = trim((string) ($_GET["start_date"] ?? ""));
-$endDate = trim((string) ($_GET["end_date"] ?? ""));
-$selectedCategory = trim((string) ($_GET["categoryID"] ?? ""));
-$selectedStatus = trim((string) ($_GET["statusID"] ?? ""));
-$searchQuery = trim((string) ($_GET["search"] ?? ""));
+
+/* ==========================================
+   APPLY FILTERS ONLY WHEN SUBMITTED
+========================================== */
+
+$filtersApplied =
+    ($_GET["filters_applied"] ?? "") === "1";
+
+$startDate = $filtersApplied
+    ? trim((string) ($_GET["start_date"] ?? ""))
+    : "";
+
+$endDate = $filtersApplied
+    ? trim((string) ($_GET["end_date"] ?? ""))
+    : "";
+
+$selectedCategory = $filtersApplied
+    ? trim((string) ($_GET["categoryID"] ?? ""))
+    : "";
+
+$selectedStatus = $filtersApplied
+    ? trim((string) ($_GET["statusID"] ?? ""))
+    : "";
+
+$searchQuery = $filtersApplied
+    ? trim((string) ($_GET["search"] ?? ""))
+    : "";
+
 
 /* Validate date format: YYYY-MM-DD */
 
@@ -264,6 +287,60 @@ if ($searchQuery !== "") {
 // Final WHERE clause for queries using these conditions.
 $whereSQL = implode(" AND ", $conditions);
 
+
+/* =========================================
+   CATEGORY ROW DATA
+
+   Keep all three category rows visible.
+   Ignore only the category dropdown when
+   retrieving each category's report summary.
+========================================= */
+
+$groupConditions = $conditions;
+$groupTypes = $types;
+$groupParams = $params;
+
+if ($selectedCategory !== "") {
+
+    $conditionIndex = array_search(
+        "r.categoryID = ?",
+        $groupConditions,
+        true
+    );
+
+    if ($conditionIndex !== false) {
+
+        array_splice(
+            $groupConditions,
+            $conditionIndex,
+            1
+        );
+
+        $parameterIndex = 1
+            + ($startDate !== "" ? 1 : 0)
+            + ($endDate !== "" ? 1 : 0);
+
+        array_splice(
+            $groupParams,
+            $parameterIndex,
+            1
+        );
+
+        $groupTypes = substr_replace(
+            $groupTypes,
+            "",
+            $parameterIndex,
+            1
+        );
+    }
+}
+
+$groupWhereSQL = implode(
+    " AND ",
+    $groupConditions
+);
+
+
 /* =========================================================
    REPORT GROUPS - ONE ROW PER CATEGORY
 
@@ -287,7 +364,7 @@ $sql = "
             r.categoryID,
             COUNT(r.reportID) AS totalReports
         FROM reports r
-        WHERE $whereSQL
+        WHERE $groupWhereSQL
         GROUP BY r.categoryID
     ) g
         ON g.categoryID = c.categoryID
@@ -307,11 +384,21 @@ $sql = "
 ";
 
 $stmt = reportsPrepare($conn, $sql);
-$stmt->bind_param($types, ...$params);
+$stmt->bind_param($groupTypes, ...$groupParams);
 $stmt->execute();
 
 $reportGroups = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+
+$groupTotalReports = array_sum(
+    array_map(
+        static fn($group) =>
+            (int) $group["totalReports"],
+        $reportGroups
+    )
+);
+
 
 
 // Prepare lookup for each category
@@ -341,7 +428,7 @@ $sql = "
     LEFT JOIN location l
         ON l.locationID = r.locationID
 
-    WHERE $whereSQL
+    WHERE $groupWhereSQL
 
     ORDER BY
         r.dateReported DESC,
@@ -349,7 +436,7 @@ $sql = "
 ";
 
 $stmt = reportsPrepare($conn, $sql);
-$stmt->bind_param($types, ...$params);
+$stmt->bind_param($groupTypes, ...$groupParams);
 $stmt->execute();
 
 $latestResults = $stmt->get_result();
@@ -604,7 +691,11 @@ $stmt->close();
             class="analytics-filters"
             method="GET"
         >
-
+            <input
+                type="hidden"
+                name="filters_applied"
+                value="1"
+            >
 
             <div class="analytics-filter">
 
@@ -807,7 +898,7 @@ $stmt->close();
                 <div class="reports-card-header">
                     <h2>
                         Matching Reports
-                        <span>(<?= $totalReports ?>)</span>
+                        <span>(<?= $groupTotalReports ?>)</span>
                     </h2>
                 </div>
 
