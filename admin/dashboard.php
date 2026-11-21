@@ -146,6 +146,8 @@ $sql = "SELECT
             ON c.categoryID = r.categoryID
             AND r.barangayID = ?
 
+        WHERE c.categoryName <> 'Blocked Drainage'
+
         GROUP BY
             c.categoryID,
             c.categoryName
@@ -176,37 +178,31 @@ while ($row = $categoryResult->fetch_assoc()) {
 $stmt->close();
 
 
-// ==========================================
-// GET HEATMAP DATA
-// ==========================================
 
-$sql = "SELECT
+/* ==========================================
+   GET HEATMAP DATA
+   SAME REPORT DATA AS heatmap.php
+========================================== */
 
-            r.reportID,
-            r.title,
-            r.noOfReports,
+$sql = "
+    SELECT
+        r.reportID,
+        r.locationID,
+        l.latitude,
+        l.longitude,
+        l.address
 
-            l.latitude,
-            l.longitude,
-            l.address,
+    FROM reports r
 
-            c.categoryName
+    INNER JOIN location l
+        ON r.locationID = l.locationID
 
-        FROM reports r
+    WHERE r.barangayID = ?
+      AND l.latitude IS NOT NULL
+      AND l.longitude IS NOT NULL
 
-        INNER JOIN location l
-            ON r.locationID = l.locationID
-
-        LEFT JOIN categories c
-            ON r.categoryID = c.categoryID
-
-        WHERE r.barangayID = ?
-
-        AND l.latitude IS NOT NULL
-        AND l.longitude IS NOT NULL
-
-        ORDER BY r.dateReported DESC";
-
+    ORDER BY r.dateReported DESC
+";
 
 $stmt = $conn->prepare($sql);
 
@@ -224,28 +220,11 @@ $heatmapData = [];
 while ($row = $heatmapResult->fetch_assoc()) {
 
     $heatmapData[] = [
-
-        "reportID" =>
-            $row["reportID"],
-
-        "title" =>
-            $row["title"],
-
-        "categoryName" =>
-            $row["categoryName"],
-
-        "latitude" =>
-            (float) $row["latitude"],
-
-        "longitude" =>
-            (float) $row["longitude"],
-
-        "noOfReports" =>
-            (int) $row["noOfReports"],
-
-        "address" =>
-            $row["address"]
-
+        "reportID" => $row["reportID"],
+        "locationID" => $row["locationID"],
+        "latitude" => (float) $row["latitude"],
+        "longitude" => (float) $row["longitude"],
+        "address" => $row["address"]
     ];
 
 }
@@ -763,13 +742,9 @@ $unreadNotifications =
 ></script>
 
 
-<!-- ==========================================
-     LEAFLET HEAT PLUGIN
-=========================================== -->
 
-<script
-    src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"
-></script>
+<!-- LEAFLET HEAT PLUGIN -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
 
 <script>
@@ -853,321 +828,137 @@ L.tileLayer(
 ).addTo(map);
 
 
-// ==========================================
-// GET HIGHEST DUPLICATE COUNT
-// ==========================================
 
-let maxReports = 1;
+/* ==========================================
+   GROUP SUBMISSIONS BY LOCATION
+========================================== */
 
+const locationGroups = {};
 
-heatmapReports.forEach(
-    report => {
+heatmapReports.forEach(report => {
 
-        const count =
-            Number(
-                report.noOfReports
-            ) || 1;
-
-
-        if (
-            count > maxReports
-        ) {
-
-            maxReports = count;
-
-        }
-
-    }
-);
-
-
-// ==========================================
-// CREATE HEAT POINTS
-// ==========================================
-
-const heatPoints =
-    heatmapReports.map(
-        report => {
-
-            const count =
-                Number(
-                    report.noOfReports
-                ) || 1;
-
-
-            let intensity;
-
-
-            /*
-             * A report with 1 occurrence
-             * starts at the yellow range.
-             *
-             * Higher duplicate counts
-             * gradually become hotter.
-             */
-
-            if (
-                maxReports <= 1
-            ) {
-
-                intensity = 0.40;
-
-            } else {
-
-                intensity =
-                    0.40 +
-                    (
-                        (count - 1)
-                        /
-                        (maxReports - 1)
-                    ) * 0.60;
-
-            }
-
-
-            intensity =
-                Math.min(
-                    1,
-                    Math.max(
-                        0.40,
-                        intensity
-                    )
-                );
-
-
-            return [
-
-                report.latitude,
-
-                report.longitude,
-
-                intensity
-
-            ];
-
-        }
-    );
-
-
-// ==========================================
-// CREATE HEATMAP
-// ==========================================
-
-if (
-    heatPoints.length > 0
-) {
-
-
-    L.heatLayer(
-
-        heatPoints,
-
-        {
-
-            radius: 30,
-
-            blur: 22,
-
-            maxZoom: 17,
-
-            minOpacity: 0.55,
-
-            gradient: {
-
-                0.40: "#dce51c",
-
-                0.55: "#ffb300",
-
-                0.70: "#ff7600",
-
-                0.85: "#ff3d00",
-
-                1.00: "#ff0000"
-
-            }
-
-        }
-
-    ).addTo(map);
-
-
-    // ======================================
-    // CREATE CLICKABLE LOCATION MARKERS
-    // ======================================
-
-    heatmapReports.forEach(
-        report => {
-
-
-            const marker =
-                L.circleMarker(
-
-                    [
-                        report.latitude,
-                        report.longitude
-                    ],
-
-                    {
-
-                        radius: 5,
-
-                        fillColor:
-                            "#1477f8",
-
-                        color:
-                            "#ffffff",
-
-                        weight: 2,
-
-                        fillOpacity: 0.9
-
-                    }
-
-                ).addTo(map);
-
-
-            marker.bindPopup(`
-
-                <div class="map-popup">
-
-                    <strong>
-                        ${escapeHtml(
-                            report.title
-                        )}
-                    </strong>
-
-                    <br>
-
-                    <span>
-                        Category:
-                        ${escapeHtml(
-                            report.categoryName ||
-                            "N/A"
-                        )}
-                    </span>
-
-                    <br>
-
-                    <span>
-                        No. of Reports:
-                        ${Number(
-                            report.noOfReports
-                        ) || 1}
-                    </span>
-
-                    <br>
-
-                    <small>
-                        ${escapeHtml(
-                            report.address ||
-                            "No address"
-                        )}
-                    </small>
-
-                </div>
-
-            `);
-
-        });
-
-
-    // ======================================
-    // FIT MAP TO ALL REPORT LOCATIONS
-    // ======================================
+    const latitude = Number(report.latitude);
+    const longitude = Number(report.longitude);
 
     if (
-        heatmapReports.length > 1
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
     ) {
-
-        const bounds =
-            L.latLngBounds(
-
-                heatmapReports.map(
-                    report => [
-
-                        report.latitude,
-
-                        report.longitude
-
-                    ]
-                )
-
-            );
-
-
-        map.fitBounds(
-
-            bounds,
-
-            {
-
-                padding: [
-                    20,
-                    20
-                ],
-
-                maxZoom: 16
-
-            }
-
-        );
-
+        return;
     }
 
+    const locationID = String(report.locationID);
+
+    if (!locationGroups[locationID]) {
+
+        locationGroups[locationID] = {
+            latitude: latitude,
+            longitude: longitude,
+            count: 0
+        };
+    }
+
+    // One database record = one submission
+    locationGroups[locationID].count++;
+});
+
+
+/* ==========================================
+   CREATE HEAT POINTS
+========================================== */
+
+const heatPoints = [];
+
+Object.values(locationGroups).forEach(location => {
+
+    const intensity = Math.min(location.count, 4);
+
+    heatPoints.push([
+        location.latitude,
+        location.longitude,
+        intensity
+    ]);
+
+});
+
+
+/* ==========================================
+   CREATE VISIBLE DASHBOARD HEATMAP
+========================================== */
+
+if (heatPoints.length > 0) {
+
+    L.heatLayer(heatPoints, {
+
+        // Larger spots for the smaller dashboard
+        radius: 50,
+
+        // Stronger, more defined colors
+        blur: 20,
+
+        // Preserve intensity at wider map zooms
+        maxZoom: 10,
+
+        // Maximum represented concentration
+        max: 4,
+
+        // Make the heat overlay more visible
+        minOpacity: 0.65,
+
+        // Same colors as heatmap.php
+        gradient: {
+            0.00: "#00c853",
+            0.25: "#ffff00",
+            0.50: "#ff9800",
+            0.75: "#ff5722",
+            1.00: "#ff0000"
+        }
+
+    }).addTo(map);
 }
 
 
-// ==========================================
-// ESCAPE HTML FOR POPUPS
-// ==========================================
+/* ==========================================
+   CORRECT MAP SIZE AND POSITION
+========================================== */
 
-function escapeHtml(value) {
+setTimeout(() => {
 
-    return String(
-        value ?? ""
-    )
+    map.invalidateSize();
 
-        .replace(
-            /&/g,
-            "&amp;"
-        )
+    if (heatPoints.length > 1) {
 
-        .replace(
-            /</g,
-            "&lt;"
-        )
-
-        .replace(
-            />/g,
-            "&gt;"
-        )
-
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-
-        .replace(
-            /'/g,
-            "&#039;"
+        const bounds = L.latLngBounds(
+            heatPoints.map(point => [
+                point[0],
+                point[1]
+            ])
         );
 
-}
+        map.fitBounds(bounds, {
+            padding: [30, 30],
+            maxZoom: 15
+        });
+
+    } else if (heatPoints.length === 1) {
+
+        map.setView(
+            [heatPoints[0][0], heatPoints[0][1]],
+            15
+        );
+    }
+
+}, 150);
 
 
-// ==========================================
-// FIX MAP SIZE AFTER PAGE LOAD
-// ==========================================
+/* ==========================================
+   DEBUG HEATMAP DATA
+========================================== */
 
-setTimeout(
-    () => {
-
-        map.invalidateSize();
-
-    },
-    100
-);
-
+console.log("Heatmap reports:", heatmapReports);
+console.log("Location groups:", locationGroups);
+console.log("Heatmap points:", heatPoints);
+console.log("Map zoom:", map.getZoom());
 
 </script>
 

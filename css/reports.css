@@ -1412,3 +1412,60 @@ body {
         flex: 1;
     }
 }
+
+
+.reports-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.view-all-reports-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 1px solid #d4e1f5;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s ease;
+}
+
+.view-all-reports-btn:hover {
+    background: #eff6ff;
+}
+
+@media (max-width: 600px) {
+    .reports-card-header {
+        flex-wrap: wrap;
+    }
+}
+
+
+/* =============================================
+   CLICKABLE CATEGORY ROWS
+============================================= */
+
+.clickable-report-row {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.clickable-report-row:hover > td {
+    background-color: #f0f6ff;
+}
+
+.clickable-report-row:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: -2px;
+}
+
+.clickable-report-row .view-report-btn {
+    cursor: pointer;
+}

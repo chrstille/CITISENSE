@@ -72,6 +72,8 @@ $stmt = $conn->prepare("
         ON r.categoryID = c.categoryID
         AND r.barangayID = ?
 
+    WHERE c.categoryName <> 'Blocked Drainage'
+
     GROUP BY
         c.categoryID,
         c.categoryName

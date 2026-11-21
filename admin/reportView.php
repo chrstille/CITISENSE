@@ -14,7 +14,6 @@ $locationID = trim((string) ($_GET["locationID"] ?? ""));
 
 if (
     $categoryID === "" ||
-    $locationID === "" ||
     strlen($categoryID) > 50 ||
     strlen($locationID) > 50
 ) {
@@ -402,12 +401,14 @@ foreach ($historyRows as $row) {
     $historyByReport[$reportID][] = $row;
 }
 
+
 /* =========================================================
-   SELECT REPORTS FOR REGULAR REPORT VIEW
+   SELECT PENDING REPORTS FOR REGULAR REPORT VIEW
 
-   Resolved reports remain visible here.
-
-   Only Manage Reports excludes closed cycles.
+   - Only the selected category
+   - Only Pending reports (STAT001)
+   - All locations in the admin's barangay
+   - Newest submissions first
 ========================================================= */
 
 $selectedReports = [];
@@ -416,73 +417,41 @@ foreach ($allReports as $report) {
 
     if (
         (string) $report["categoryID"] === $categoryID &&
-        (string) $report["locationID"] === $locationID
+        (string) $report["statusID"] === "STAT001"
     ) {
         $selectedReports[] = $report;
     }
 }
 
+/* Get the selected category's name */
+
 $categoryName = "";
-$address = "";
 
-// Use the selected reports when reports exist.
-if (!empty($selectedReports)) {
-    $categoryName = $selectedReports[0]["categoryName"];
-    $address = $selectedReports[0]["address"];
-} else {
-    // Get the category name even if no reports have been submitted.
-    $stmt = $conn->prepare(
-        "SELECT categoryName
-         FROM categories
-         WHERE categoryID = ?
-         LIMIT 1"
-    );
+$stmt = $conn->prepare(
+    "SELECT categoryName
+     FROM categories
+     WHERE categoryID = ?
+     LIMIT 1"
+);
 
-    $stmt->bind_param("s", $categoryID);
-    $stmt->execute();
+$stmt->bind_param("s", $categoryID);
+$stmt->execute();
 
-    $categoryResult = $stmt->get_result()->fetch_assoc();
+$categoryResult = $stmt->get_result()->fetch_assoc();
 
-    if ($categoryResult) {
-        $categoryName = $categoryResult["categoryName"];
-    }
-
-    $stmt->close();
-
-    // Get the selected location's address.
-    $stmt = $conn->prepare(
-        "SELECT address
-         FROM location
-         WHERE locationID = ?
-         LIMIT 1"
-    );
-
-    $stmt->bind_param("s", $locationID);
-    $stmt->execute();
-
-    $locationResult = $stmt->get_result()->fetch_assoc();
-
-    if ($locationResult) {
-        $address = $locationResult["address"];
-    }
-
-    $stmt->close();
+if ($categoryResult) {
+    $categoryName = $categoryResult["categoryName"];
 }
 
+$stmt->close();
 
-/* Overdue first, then newest reports. */
+/* Category-wide view, not location-specific */
+
+$address = "All locations";
+
+/* Display the newest Pending reports first */
 
 usort($selectedReports, function ($a, $b) {
-
-    $aOverdue =
-        $a["statusID"] === "STAT004" ? 0 : 1;
-
-    $bOverdue =
-        $b["statusID"] === "STAT004" ? 0 : 1;
-
-    if ($aOverdue !== $bOverdue) {
-        return $aOverdue <=> $bOverdue;
-    }
 
     $comparison = strcmp(
         $b["dateReported"],
@@ -497,29 +466,12 @@ usort($selectedReports, function ($a, $b) {
         );
 });
 
-$categoryName = $selectedReports[0]["categoryName"];
-$address = $selectedReports[0]["address"];
+/* Only Pending is applicable to Screen 1 */
 
-$statusOrder = [
-    "Overdue",
-    "In Progress",
-    "Pending",
-    "Resolved"
-];
+$groupStatuses = empty($selectedReports)
+    ? []
+    : ["Pending"];
 
-$statuses = array_unique(
-    array_column(
-        $selectedReports,
-        "statusName"
-    )
-);
-
-$groupStatuses = array_values(
-    array_intersect(
-        $statusOrder,
-        $statuses
-    )
-);
 
 /* =========================================================
    REUSABLE REPORT CARD
@@ -750,11 +702,6 @@ function rvRenderCard(
 
                     <h2><?= rvEscape($categoryName) ?></h2>
 
-                    <p>
-                        <i class="bi bi-geo-alt"></i>
-                        <?= rvEscape($address) ?>
-                    </p>
-
                 </div>
 
             </div>
@@ -808,11 +755,11 @@ function rvRenderCard(
                             <i class="bi bi-inbox"></i>
                         </div>
 
-                        <h3>No Submitted Reports</h3>
+                        <h3>No Pending Reports</h3>
 
                         <p>
-                            There are currently no submitted reports
-                            for this category and location.
+                            There are currently no pending reports
+                            submitted under this category.
                         </p>
 
                     </div>
@@ -926,9 +873,9 @@ function rvRenderCard(
             <button
                 type="button"
                 class="manage-back-button"
-                data-manage-back="categories"
+                data-manage-back="group"
             >
-                Back to Categories
+                Back to Pending Reports
             </button>
 
             <h2 class="manage-heading">
@@ -1551,7 +1498,11 @@ function rvRenderCard(
 
             <!-- STATUS HISTORY -->
 
-            <div class="manage-history-panel">
+            <div
+            class="manage-history-panel"
+            id="detailStatusHistoryPanel"
+            hidden
+            >
 
                 <h3>
                     <i class="bi bi-clock-history"></i>
