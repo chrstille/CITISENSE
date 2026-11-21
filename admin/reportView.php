@@ -99,6 +99,7 @@ $sql = "
         r.description,
         r.dateReported,
         r.timeline,
+        TIMESTAMPDIFF(SECOND, r.dateReported, NOW()) AS secondsAgo,
 
         c.categoryName,
         s.statusName,
@@ -473,52 +474,121 @@ $groupStatuses = empty($selectedReports)
     : ["Pending"];
 
 
+
 /* =========================================================
-   REUSABLE REPORT CARD
+   ALL IMAGES PER REPORT (for the gallery in report details)
 ========================================================= */
 
-function rvRenderCard(
-    array $report,
-    bool $isOriginal = false,
-    bool $isManage = false
-): void {
+$imagesByReport = [];
+
+$stmt = $conn->prepare(
+    "SELECT ri.reportID, ri.imagePath
+       FROM reportImages ri
+       INNER JOIN reports r ON r.reportID = ri.reportID
+      WHERE r.barangayID = ?
+      ORDER BY ri.uploadedAt ASC"
+);
+
+if ($stmt) {
+    $stmt->bind_param("s", $barangayID);
+    $stmt->execute();
+    $imageResult = $stmt->get_result();
+
+    while ($row = $imageResult->fetch_assoc()) {
+        if (trim((string) $row["imagePath"]) !== "") {
+            $imagesByReport[$row["reportID"]][] = $row["imagePath"];
+        }
+    }
+
+    $stmt->close();
+}
+
+/* =========================================================
+   SMALL VIEW HELPERS
+========================================================= */
+
+/* Uses the database clock (secondsAgo) so it's right even if PHP and MySQL time zones differ */
+function rvTimeAgo($value, $secondsAgo = null): string
+{
+    $stamp = $value ? strtotime((string) $value) : false;
+
+    if ($stamp === false) {
+        return "";
+    }
+
+    $seconds = $secondsAgo !== null
+        ? max(0, (int) $secondsAgo)
+        : max(0, time() - $stamp);
+
+    if ($seconds < 60) return "Just now";
+    if ($seconds < 3600) return floor($seconds / 60) . "m ago";
+    if ($seconds < 86400) return floor($seconds / 3600) . "h ago";
+    if ($seconds < 604800) return floor($seconds / 86400) . "d ago";
+
+    return date("M j, Y", $stamp);
+}
+
+function rvCategoryIcon($name): string
+{
+    $name = strtolower((string) $name);
+
+    if (str_contains($name, "waste") || str_contains($name, "garbage")) return "bi-trash3";
+    if (str_contains($name, "pothole") || str_contains($name, "road")) return "bi-cone-striped";
+    if (str_contains($name, "drain") || str_contains($name, "flood")) return "bi-water";
+
+    return "bi-exclamation-diamond";
+}
+
+function rvPill(array $report): string
+{
+    $isOverdue = $report["statusID"] === "STAT004";
+    $label = $isOverdue
+        ? rvOverdueLabel($report["timeline"])
+        : $report["statusName"];
+
+    return '<span class="pill pill-' . rvEscape(rvStatusClass($report["statusName"])) . '">'
+        . rvEscape($label)
+        . '</span>';
+}
+
+/* =========================================================
+   REUSABLE REPORT CARD
+
+   $variant:
+     "list"      Pending list (opens read-only details)
+     "original"  Original report inside Manage (opens Manage screen)
+     "duplicate" Duplicate inside Manage (opens read-only details)
+     "summary"   Static summary at the top of the Manage Original screen
+========================================================= */
+
+function rvRenderCard(array $report, string $variant = "list"): void
+{
+    global $imagesByReport;
 
     $reportID = $report["reportID"];
-    $statusName = $report["statusName"];
 
-    $isOverdue =
-        $report["statusID"] === "STAT004";
-
-    $isReadOnlyDuplicate =
-        $isManage && !$isOriginal;
+    $isOriginal = in_array($variant, ["original", "summary"], true);
+    $isManage = $variant !== "list";
+    $isStatic = $variant === "summary";
 
     $residentName = trim(
         ($report["firstName"] ?? "") . " " .
         ($report["lastName"] ?? "")
     );
 
-    $timelineInput = rvDate(
-        $report["timeline"],
-        "Y-m-d\TH:i"
-    );
-
-    $timelineDisplay = rvDate(
-        $report["timeline"]
-    );
-
-    $displayStatus = $isOverdue
-        ? rvOverdueLabel($report["timeline"])
-        : $statusName;
-
-    $classes = "duplicate-report-card";
-
-    if ($isReadOnlyDuplicate) {
-        $classes .= " is-readonly-duplicate";
+    if ($residentName === "") {
+        $residentName = "Resident";
     }
 
-    if ($isManage && $isOriginal) {
-        $classes .= " is-original-report";
-    } elseif ($isOverdue) {
+    $images = $imagesByReport[$reportID] ?? [];
+
+    if (!$images && !empty($report["imagePath"])) {
+        $images = [$report["imagePath"]];
+    }
+
+    $classes = "duplicate-report-card rv-card rv-card-" . $variant;
+
+    if ($report["statusID"] === "STAT004") {
         $classes .= " is-overdue";
     }
     ?>
@@ -528,150 +598,114 @@ function rvRenderCard(
 
         data-report-id="<?= rvEscape($reportID) ?>"
         data-status-id="<?= rvEscape($report["statusID"]) ?>"
-        data-status-name="<?= rvEscape($statusName) ?>"
+        data-status-name="<?= rvEscape($report["statusName"]) ?>"
 
         data-resident="<?= rvEscape($residentName) ?>"
         data-email="<?= rvEscape($report["email"]) ?>"
         data-contact="<?= rvEscape($report["contactNo"]) ?>"
 
         data-category="<?= rvEscape($report["categoryName"]) ?>"
+        data-title="<?= rvEscape($report["title"]) ?>"
         data-location="<?= rvEscape($report["address"]) ?>"
         data-description="<?= rvEscape($report["description"]) ?>"
 
-        data-timeline="<?= rvEscape($timelineInput) ?>"
+        data-timeline="<?= rvEscape(rvDate($report["timeline"], "Y-m-d\TH:i")) ?>"
         data-date="<?= rvEscape($report["dateReported"]) ?>"
-        data-image="<?= rvEscape($report["imagePath"]) ?>"
+        data-image="<?= rvEscape($images[0] ?? "") ?>"
+        data-images="<?= rvEscape(json_encode($images)) ?>"
 
         data-original="<?= $isOriginal ? "1" : "0" ?>"
         data-manage="<?= $isManage ? "1" : "0" ?>"
+        data-variant="<?= rvEscape($variant) ?>"
 
-        <?php if ($isReadOnlyDuplicate): ?>
-
-            aria-disabled="true"
-            aria-label="Duplicate report <?= rvEscape($reportID) ?>"
-
-        <?php else: ?>
-
+        <?php if (!$isStatic): ?>
             tabindex="0"
             role="button"
-
-            aria-label="<?= $isManage
+            aria-label="<?= $variant === "original"
                 ? "Manage original report "
                 : "View report " ?><?= rvEscape($reportID) ?>"
-
         <?php endif; ?>
     >
 
-        <div class="duplicate-report-image">
-
-            <?php if (!empty($report["imagePath"])): ?>
-
+        <div class="rv-card-thumb">
+            <?php if ($images): ?>
                 <img
-                    src="<?= rvEscape($report["imagePath"]) ?>"
-                    alt="Resident report attachment"
+                    src="<?= rvEscape($images[0]) ?>"
+                    alt="Photo for report <?= rvEscape($reportID) ?>"
                     loading="lazy"
+                    onerror="this.parentElement.classList.add('is-broken'); this.remove();"
                 >
-
+                <?php if (count($images) > 1): ?>
+                    <span class="rv-thumb-count"><i class="bi bi-images"></i> <?= count($images) ?></span>
+                <?php endif; ?>
             <?php else: ?>
-
-                <div class="no-report-image">
+                <span class="rv-thumb-empty">
                     <i class="bi bi-image"></i>
-                </div>
-
+                    <small>No photo</small>
+                </span>
             <?php endif; ?>
-
         </div>
 
-        <div class="duplicate-report-info">
+        <div class="rv-card-body">
 
-            <?php if ($isManage): ?>
-
-                <span class="manage-report-type">
-                    <?= $isOriginal
-                        ? "Original Report"
-                        : "Duplicate Report" ?>
-                </span>
-
-            <?php endif; ?>
-
-            <div class="reported-by">
-                Reported by
-                <strong><?= rvEscape($residentName) ?></strong>
-            </div>
-
-            <div class="report-meta">
-
-                <div>
-                    <i class="bi bi-calendar3"></i>
-
-                    <?= rvEscape(
-                        rvDate($report["dateReported"])
-                    ) ?>
-
-                    <span
-                        class="report-card-timeline"
-                        <?= $timelineDisplay === ""
-                            ? "hidden"
-                            : "" ?>
-                    >
-
-                        <span aria-hidden="true">→</span>
-
-                        <span class="report-card-timeline-text">
-                            <?= rvEscape($timelineDisplay) ?>
-                        </span>
-
-                    </span>
-                </div>
-
-                <div>
-                    <i class="bi bi-card-text"></i>
-                    ID: <?= rvEscape($reportID) ?>
-                </div>
-
-                <div>
-                    <i class="bi bi-geo-alt"></i>
-                    <?= rvEscape($report["address"]) ?>
-                </div>
-
-            </div>
-
-            <span
-                class="report-card-status status-<?= rvEscape(
-                    rvStatusClass($statusName)
-                ) ?>"
-            >
-
-                <?php if ($isOverdue): ?>
-                    <i class="bi bi-exclamation-triangle"></i>
+            <div class="rv-card-top">
+                <?php if ($variant === "original" || $variant === "summary"): ?>
+                    <span class="rv-tag rv-tag-original"><i class="bi bi-star-fill"></i> Original</span>
+                <?php elseif ($variant === "duplicate"): ?>
+                    <span class="rv-tag rv-tag-duplicate"><i class="bi bi-files"></i> Duplicate</span>
                 <?php endif; ?>
 
-                <?= rvEscape($displayStatus) ?>
+                <?= rvPill($report) ?>
 
-            </span>
+                <span class="rv-card-time" title="<?= rvEscape(rvDate($report["dateReported"])) ?>">
+                    <?= rvEscape(rvTimeAgo($report["dateReported"], $report["secondsAgo"] ?? null)) ?>
+                </span>
+            </div>
 
-            <?php if (!empty($report["description"])): ?>
+            <h4 class="rv-card-title">
+                <?= rvEscape(
+                    trim((string) $report["title"]) !== ""
+                        ? $report["title"]
+                        : $report["categoryName"] . " report"
+                ) ?>
+            </h4>
 
-                <div class="report-description">
-                    <?= rvEscape($report["description"]) ?>
+            <?php if (trim((string) $report["description"]) !== "" && $variant !== "duplicate"): ?>
+                <p class="rv-card-desc"><?= rvEscape($report["description"]) ?></p>
+            <?php endif; ?>
+
+            <div class="rv-card-meta">
+                <span><i class="bi bi-geo-alt"></i> <?= rvEscape($report["address"]) ?></span>
+                <span><i class="bi bi-person"></i> <?= rvEscape($residentName) ?></span>
+                <span class="rv-card-id"><i class="bi bi-hash"></i><?= rvEscape($reportID) ?></span>
+            </div>
+
+            <?php if (rvDate($report["timeline"]) !== "" && $variant !== "duplicate"): ?>
+                <div class="rv-card-deadline">
+                    <i class="bi bi-flag"></i>
+                    Target: <?= rvEscape(rvDate($report["timeline"])) ?>
                 </div>
-
             <?php endif; ?>
 
         </div>
 
-        <?php if (!$isReadOnlyDuplicate): ?>
-
-            <span class="report-card-open-hint">
-                <i class="bi bi-chevron-right"></i>
+        <?php if (!$isStatic): ?>
+            <span class="rv-card-action">
+                <?php if ($variant === "original"): ?>
+                    Manage <i class="bi bi-chevron-right"></i>
+                <?php else: ?>
+                    <i class="bi bi-chevron-right"></i>
+                <?php endif; ?>
             </span>
-
         <?php endif; ?>
 
     </article>
 
     <?php
 }
+
+/* Count of active cases for the selected category (for the Manage button) */
+$activeCaseCount = count($cyclesByCategory[$categoryID] ?? []);
 ?>
 
 <!-- ======================================================
@@ -685,170 +719,119 @@ function rvRenderCard(
 >
 
     <!-- ==================================================
-         SCREEN 1: REGULAR REPORT VIEW
+         SCREEN 1: PENDING REPORTS
     ================================================== -->
 
-    <section id="reportGroupScreen">
+    <section id="reportGroupScreen" class="rv-screen">
 
-        <header class="report-view-header">
-
-            <div class="report-view-title-section">
-
-                <div class="report-category-icon">
-                    <i class="bi bi-file-earmark-text"></i>
-                </div>
+        <header class="rv-header">
+            <div class="rv-header-title">
+                <span class="rv-header-icon">
+                    <i class="bi <?= rvCategoryIcon($categoryName) ?>"></i>
+                </span>
 
                 <div>
-
+                    <small>Pending reports</small>
                     <h2><?= rvEscape($categoryName) ?></h2>
-
                 </div>
-
             </div>
 
+            <button type="button" class="rv-icon-btn" data-close-report-view aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
         </header>
 
-        <div class="report-summary-manage-row">
-
-            <div
-                class="report-summary"
-                id="groupStatusBadges"
-            >
-
-                <?php foreach ($groupStatuses as $status): ?>
-
-                    <span
-                        class="status-badge status-<?= rvEscape(
-                            rvStatusClass($status)
-                        ) ?>"
-                    >
-                        <?= rvEscape($status) ?>
-                    </span>
-
-                <?php endforeach; ?>
-
-            </div>
+        <div class="rv-toolbar">
+            <p>
+                <strong><?= count($selectedReports) ?></strong>
+                new report<?= count($selectedReports) === 1 ? "" : "s" ?> waiting for review.
+                Open <b>Manage Reports</b> to update a status.
+            </p>
 
             <button
                 type="button"
-                class="manage-group-reports-btn"
+                class="btn btn-primary rv-manage-btn"
                 id="manageGroupReports"
             >
-                <i class="bi bi-grid"></i>
+                <i class="bi bi-sliders"></i>
                 Manage Reports
+                <?php if ($activeCaseCount > 0): ?>
+                    <span class="rv-btn-count"><?= $activeCaseCount ?></span>
+                <?php endif; ?>
             </button>
-
         </div>
 
-        <div
-            class="report-tab-content active"
-            id="duplicatesTab"
-        >
+        <div class="rv-list duplicate-list">
 
-            <div class="duplicate-list">
+            <?php if (empty($selectedReports)): ?>
 
-                <?php if (empty($selectedReports)): ?>
+                <div class="rv-empty">
+                    <span class="rv-empty-icon"><i class="bi bi-check2-circle"></i></span>
+                    <h3>No pending reports</h3>
+                    <p>Every <?= rvEscape(strtolower($categoryName)) ?> report has been reviewed. New submissions will appear here.</p>
+                </div>
 
-                    <div class="report-empty-state">
+            <?php else: ?>
 
-                        <div class="report-empty-icon">
-                            <i class="bi bi-inbox"></i>
-                        </div>
+                <?php foreach ($selectedReports as $report): ?>
+                    <?php rvRenderCard($report, "list"); ?>
+                <?php endforeach; ?>
 
-                        <h3>No Pending Reports</h3>
-
-                        <p>
-                            There are currently no pending reports
-                            submitted under this category.
-                        </p>
-
-                    </div>
-
-                <?php else: ?>
-
-                    <?php foreach ($selectedReports as $report): ?>
-
-                        <?php rvRenderCard($report); ?>
-
-                    <?php endforeach; ?>
-
-                <?php endif; ?>
-
-            </div>
+            <?php endif; ?>
 
         </div>
 
     </section>
 
     <!-- ==================================================
-         SCREEN 2: MANAGE REPORT CATEGORIES
+         SCREEN 2: MANAGE REPORT CATEGORIES (kept for navigation)
     ================================================== -->
 
-    <section
-        id="manageCategoriesScreen"
-        class="manage-screen"
-        hidden
-    >
+    <section id="manageCategoriesScreen" class="rv-screen manage-screen" hidden>
 
-        <button
-            type="button"
-            class="manage-back-button"
-            data-manage-back="group"
-        >
-            Back to Reports
-        </button>
+        <header class="rv-header">
+            <button type="button" class="rv-back" data-manage-back="group">
+                <i class="bi bi-arrow-left"></i> Pending reports
+            </button>
 
-        <h2 class="manage-heading">
-            Manage Reports
-        </h2>
+            <button type="button" class="rv-icon-btn" data-close-report-view aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </header>
 
-        <p class="manage-subtitle">
-            Select a category to view Original Reports
-            and their duplicates.
-        </p>
+        <div class="rv-intro">
+            <h2>Manage Reports</h2>
+            <p>Select a category to see its original reports and their duplicates.</p>
+        </div>
 
-        <div class="manage-category-buttons">
-
+        <div class="rv-category-list">
             <?php foreach ($categories as $category): ?>
-
                 <button
                     type="button"
-                    class="manage-category-button"
-                    data-manage-category="<?= rvEscape(
-                        $category["categoryID"]
-                    ) ?>"
+                    class="rv-category-btn"
+                    data-manage-category="<?= rvEscape($category["categoryID"]) ?>"
                 >
-
-                    <span>
-                        <i class="bi bi-folder2-open"></i>
-                        <?= rvEscape($category["categoryName"]) ?>
-                    </span>
-
+                    <span class="rv-header-icon"><i class="bi <?= rvCategoryIcon($category["categoryName"]) ?>"></i></span>
+                    <span><?= rvEscape($category["categoryName"]) ?></span>
+                    <small><?= count($cyclesByCategory[$category["categoryID"]] ?? []) ?> active</small>
                     <i class="bi bi-chevron-right"></i>
-
                 </button>
-
             <?php endforeach; ?>
-
         </div>
 
     </section>
 
     <!-- ==================================================
-         SCREEN 3: ORIGINAL AND DUPLICATE REPORTS
+         SCREEN 3: ORIGINAL + DUPLICATE REPORTS (per category)
     ================================================== -->
 
     <?php foreach ($categories as $category): ?>
 
         <?php
-
         $catID = $category["categoryID"];
-
-        $categoryCycles =
-            $cyclesByCategory[$catID] ?? [];
+        $categoryCycles = $cyclesByCategory[$catID] ?? [];
 
         usort($categoryCycles, function ($a, $b) {
-
             $comparison = strcmp(
                 $b["original"]["dateReported"],
                 $a["original"]["dateReported"]
@@ -856,110 +839,117 @@ function rvRenderCard(
 
             return $comparison !== 0
                 ? $comparison
-                : strcmp(
-                    $b["originalID"],
-                    $a["originalID"]
-                );
+                : strcmp($b["originalID"], $a["originalID"]);
         });
 
+        $duplicateTotal = array_sum(array_map(
+            static fn($cycle) => count($cycle["duplicates"]),
+            $categoryCycles
+        ));
         ?>
 
         <section
-            class="manage-screen manage-category-screen"
+            class="rv-screen manage-screen manage-category-screen"
             data-category-screen="<?= rvEscape($catID) ?>"
             hidden
         >
 
-            <button
-                type="button"
-                class="manage-back-button"
-                data-manage-back="group"
-            >
-                Back to Pending Reports
-            </button>
+            <header class="rv-header">
+                <button type="button" class="rv-back" data-manage-back="group">
+                    <i class="bi bi-arrow-left"></i> Pending reports
+                </button>
 
-            <h2 class="manage-heading">
-                <?= rvEscape($category["categoryName"]) ?>
-            </h2>
+                <button type="button" class="rv-icon-btn" data-close-report-view aria-label="Close">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </header>
+
+            <div class="rv-intro">
+                <small>Manage reports</small>
+                <h2><?= rvEscape($category["categoryName"]) ?></h2>
+
+                <div class="rv-intro-stats">
+                    <span><b><?= count($categoryCycles) ?></b> active case<?= count($categoryCycles) === 1 ? "" : "s" ?></span>
+                    <span><b><?= $duplicateTotal ?></b> duplicate<?= $duplicateTotal === 1 ? "" : "s" ?></span>
+                </div>
+            </div>
+
+            <div class="rv-explainer">
+                <i class="bi bi-info-circle-fill"></i>
+                <p>
+                    Reports about the <b>same issue at the same location</b> are grouped into one case.
+                    The first submission is the <b>Original</b>; later ones are <b>Duplicates</b>.
+                    Update the Original and its duplicates follow automatically.
+                </p>
+            </div>
 
             <?php if (!$categoryCycles): ?>
 
-                <p class="manage-empty">
-                    No active reports in this category.
-                </p>
+                <div class="rv-empty">
+                    <span class="rv-empty-icon"><i class="bi bi-inbox"></i></span>
+                    <h3>No active cases</h3>
+                    <p>There are no open reports in this category right now.</p>
+                </div>
 
             <?php endif; ?>
 
-            <?php foreach ($categoryCycles as $cycle): ?>
+            <div class="rv-cases">
 
-                <div class="manage-cycle">
+                <?php foreach ($categoryCycles as $cycle): ?>
 
-                    <h3 class="manage-cycle-heading">
+                    <?php $dupCount = count($cycle["duplicates"]); ?>
 
-                        <i class="bi bi-geo-alt"></i>
+                    <div class="rv-case manage-cycle">
 
-                        <?= rvEscape($cycle["address"]) ?>
+                        <div class="rv-case-head">
+                            <span class="rv-case-location">
+                                <i class="bi bi-geo-alt-fill"></i>
+                                <?= rvEscape($cycle["address"]) ?>
+                            </span>
 
-                        —
+                            <span class="rv-case-meta">
+                                Since <?= rvEscape(date("M j, Y", strtotime($cycle["original"]["dateReported"]))) ?>
+                                · <?= 1 + $dupCount ?> submission<?= $dupCount === 0 ? "" : "s" ?>
+                            </span>
+                        </div>
 
-                        <?= rvEscape(
-                            date(
-                                "F Y",
-                                strtotime(
-                                    $cycle["original"]["dateReported"]
-                                )
-                            )
-                        ) ?>
+                        <?php rvRenderCard($cycle["original"], "original"); ?>
 
-                    </h3>
+                        <?php if ($dupCount > 0): ?>
 
-                    <?php
-                    rvRenderCard(
-                        $cycle["original"],
-                        true,
-                        true
-                    );
-                    ?>
+                            <details class="rv-duplicates">
+                                <summary>
+                                    <span class="rv-dup-avatars">
+                                        <?php foreach (array_slice($cycle["duplicates"], 0, 3) as $dup): ?>
+                                            <span><?= rvEscape(mb_strtoupper(mb_substr((string) ($dup["firstName"] ?? "R"), 0, 1))) ?></span>
+                                        <?php endforeach; ?>
+                                    </span>
 
-                    <div class="manage-duplicates-heading">
+                                    <span class="rv-dup-label">
+                                        <?= $dupCount ?> duplicate report<?= $dupCount === 1 ? "" : "s" ?>
+                                    </span>
 
-                        Duplicate Reports
+                                    <i class="bi bi-chevron-down rv-dup-chevron"></i>
+                                </summary>
 
-                        (<?= count($cycle["duplicates"]) ?>)
+                                <div class="rv-dup-list duplicate-list">
+                                    <?php foreach ($cycle["duplicates"] as $duplicate): ?>
+                                        <?php rvRenderCard($duplicate, "duplicate"); ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            </details>
+
+                        <?php else: ?>
+
+                            <p class="rv-no-dups"><i class="bi bi-check2"></i> No duplicate submissions</p>
+
+                        <?php endif; ?>
 
                     </div>
 
-                    <?php if (!$cycle["duplicates"]): ?>
+                <?php endforeach; ?>
 
-                        <p class="manage-empty">
-                            No duplicate submissions yet.
-                        </p>
-
-                    <?php else: ?>
-
-                        <div class="duplicate-list">
-
-                            <?php foreach (
-                                $cycle["duplicates"] as $duplicate
-                            ): ?>
-
-                                <?php
-                                rvRenderCard(
-                                    $duplicate,
-                                    false,
-                                    true
-                                );
-                                ?>
-
-                            <?php endforeach; ?>
-
-                        </div>
-
-                    <?php endif; ?>
-
-                </div>
-
-            <?php endforeach; ?>
+            </div>
 
         </section>
 
@@ -967,191 +957,168 @@ function rvRenderCard(
 
     <!-- ==================================================
          SCREEN 4: MANAGE ORIGINAL REPORT
-
-         No Status History here.
     ================================================== -->
 
-    <?php foreach (
-        $cyclesByCategory as $catID => $categoryCycles
-    ): ?>
+    <?php foreach ($cyclesByCategory as $catID => $categoryCycles): ?>
 
         <?php foreach ($categoryCycles as $cycle): ?>
 
             <?php
-
             $original = $cycle["original"];
             $originalID = $original["reportID"];
             $statusID = $original["statusID"];
+            $isOverdue = $statusID === "STAT004";
+            $dupCount = count($cycle["duplicates"]);
 
-            $isOverdue =
-                $statusID === "STAT004";
+            $canSetTimeline = in_array($statusID, ["STAT002", "STAT004"], true);
 
-            $canSetTimeline = in_array(
-                $statusID,
-                ["STAT002", "STAT004"],
-                true
-            );
-
+            /* Step indicator */
+            $steps = [
+                "STAT001" => "Pending",
+                "STAT002" => "In Progress",
+                "STAT003" => "Resolved",
+            ];
+            $stepIndex = ["STAT001" => 0, "STAT002" => 1, "STAT004" => 1, "STAT003" => 2][$statusID] ?? 0;
             ?>
 
             <section
-                class="manage-screen manage-original-screen"
-
+                class="rv-screen manage-screen manage-original-screen"
                 data-original-screen="<?= rvEscape($originalID) ?>"
                 data-parent-category="<?= rvEscape($catID) ?>"
-
                 hidden
             >
 
-                <button
-                    type="button"
-                    class="manage-back-button"
-                    data-manage-back="category"
-                    data-category-id="<?= rvEscape($catID) ?>"
-                >
-                    Back to Original Reports
-                </button>
+                <header class="rv-header">
+                    <button
+                        type="button"
+                        class="rv-back"
+                        data-manage-back="category"
+                        data-category-id="<?= rvEscape($catID) ?>"
+                    >
+                        <i class="bi bi-arrow-left"></i> All cases
+                    </button>
 
-                <h2 class="manage-heading">
-                    Manage Original Report
-                </h2>
+                    <button type="button" class="rv-icon-btn" data-close-report-view aria-label="Close">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </header>
 
-                <?php rvRenderCard($original, true, true); ?>
+                <div class="rv-intro">
+                    <small>Manage original report</small>
+                    <h2><?= rvEscape($original["categoryName"]) ?> · <?= rvEscape($original["address"]) ?></h2>
+                </div>
+
+                <?php rvRenderCard($original, "summary"); ?>
+
+                <!-- Progress steps -->
+                <ol class="rv-steps<?= $isOverdue ? " is-overdue" : "" ?>">
+                    <?php $i = 0; foreach ($steps as $label): ?>
+                        <li class="<?= $i < $stepIndex ? "done" : ($i === $stepIndex ? "current" : "") ?>">
+                            <span class="rv-step-dot">
+                                <?php if ($i < $stepIndex): ?><i class="bi bi-check-lg"></i><?php else: ?><?= $i + 1 ?><?php endif; ?>
+                            </span>
+                            <span class="rv-step-label">
+                                <?= $i === 1 && $isOverdue ? "Overdue" : $label ?>
+                            </span>
+                        </li>
+                    <?php $i++; endforeach; ?>
+                </ol>
 
                 <!-- UPDATE REPORT STATUS -->
+                <div class="rv-panel manage-edit-panel">
 
-                <div class="manage-edit-panel">
+                    <h3><i class="bi bi-arrow-repeat"></i> Update status</h3>
 
-                    <h3>
-                        <i class="bi bi-arrow-repeat"></i>
-                        Update Report Status
-                    </h3>
-
-                    <div class="manage-field">
-
-                        <label>Report Status</label>
+                    <div class="rv-field">
+                        <label for="status-<?= rvEscape($originalID) ?>">New status</label>
 
                         <select
+                            id="status-<?= rvEscape($originalID) ?>"
                             class="manage-status-select"
                             data-report-id="<?= rvEscape($originalID) ?>"
                         >
+                            <option value="STAT001"
+                                <?= $statusID === "STAT001" ? "selected" : "" ?>
+                                <?= $statusID !== "STAT001" ? "disabled" : "" ?>
+                            >Pending</option>
 
-                            <option
-                                value="STAT001"
+                            <option value="STAT002"
+                                <?= $statusID === "STAT002" ? "selected" : "" ?>
+                                <?= $statusID !== "STAT001" && $statusID !== "STAT002" ? "disabled" : "" ?>
+                            >In Progress</option>
 
-                                <?= $statusID === "STAT001"
-                                    ? "selected"
-                                    : "" ?>
-
-                                <?= $statusID !== "STAT001"
-                                    ? "disabled"
-                                    : "" ?>
-                            >
-                                Pending
-                            </option>
-
-                            <option
-                                value="STAT002"
-
-                                <?= $statusID === "STAT002"
-                                    ? "selected"
-                                    : "" ?>
-
-                                <?= $statusID !== "STAT001" &&
-                                    $statusID !== "STAT002"
-                                    ? "disabled"
-                                    : "" ?>
-                            >
-                                In Progress
-                            </option>
-
-                            <option value="STAT003">
-                                Resolved
-                            </option>
+                            <option value="STAT003">Resolved</option>
 
                             <?php if ($isOverdue): ?>
-
-                                <option
-                                    value="STAT004"
-                                    selected
-                                >
-                                    Overdue
-                                </option>
-
+                                <option value="STAT004" selected>Overdue</option>
                             <?php endif; ?>
-
                         </select>
-
                     </div>
+
+                    <div class="rv-field">
+                        <label for="remarks-<?= rvEscape($originalID) ?>">
+                            Remarks <span>(optional, shared with the resident)</span>
+                        </label>
+                        <textarea
+                            id="remarks-<?= rvEscape($originalID) ?>"
+                            class="manage-remarks-input"
+                            rows="2"
+                            maxlength="1000"
+                            placeholder="e.g. Crew scheduled for Monday morning"
+                        ></textarea>
+                    </div>
+
+                    <?php if ($dupCount > 0): ?>
+                        <p class="rv-hint">
+                            <i class="bi bi-files"></i>
+                            This also updates its <?= $dupCount ?> duplicate report<?= $dupCount === 1 ? "" : "s" ?>.
+                        </p>
+                    <?php endif; ?>
 
                     <button
                         type="button"
-                        class="manage-save-button"
-                        data-save-original-status="<?= rvEscape(
-                            $originalID
-                        ) ?>"
+                        class="btn btn-primary manage-save-button"
+                        data-save-original-status="<?= rvEscape($originalID) ?>"
                     >
-                        Update Status
+                        <i class="bi bi-check2"></i>
+                        Update status
                     </button>
 
                 </div>
 
                 <!-- REPORT TIMELINE -->
+                <div class="rv-panel manage-edit-panel">
 
-                <div class="manage-edit-panel">
-
-                    <h3>
-                        <i class="bi bi-calendar-check"></i>
-                        Report Timeline
-                    </h3>
+                    <h3><i class="bi bi-calendar-check"></i> Target completion</h3>
 
                     <?php if ($canSetTimeline): ?>
 
-                        <form
-                            class="manage-timeline-form"
-                            data-report-id="<?= rvEscape($originalID) ?>"
-                        >
+                        <form class="manage-timeline-form" data-report-id="<?= rvEscape($originalID) ?>">
 
-                            <div class="manage-field">
-
-                                <label>
-                                    Expected Completion Date and Time
-                                </label>
+                            <div class="rv-field">
+                                <label for="timeline-<?= rvEscape($originalID) ?>">Expected completion date and time</label>
 
                                 <input
+                                    id="timeline-<?= rvEscape($originalID) ?>"
                                     type="datetime-local"
                                     name="timeline"
-
-                                    value="<?= rvEscape(
-                                        rvDate(
-                                            $original["timeline"],
-                                            "Y-m-d\TH:i"
-                                        )
-                                    ) ?>"
-
+                                    value="<?= rvEscape(rvDate($original["timeline"], "Y-m-d\TH:i")) ?>"
                                     required
                                 >
-
                             </div>
 
-                            <button
-                                type="submit"
-                                class="manage-save-button"
-                            >
-
-                                <?= $isOverdue
-                                    ? "Save Revised Timeline"
-                                    : "Save Timeline" ?>
-
+                            <button type="submit" class="btn btn-light manage-save-button">
+                                <i class="bi bi-calendar2-check"></i>
+                                <?= $isOverdue ? "Save revised timeline" : "Save timeline" ?>
                             </button>
 
                         </form>
 
                     <?php else: ?>
 
-                        <p class="manage-empty">
-                            Accept the report by changing its status
-                            to In Progress before setting a timeline.
+                        <p class="rv-locked">
+                            <i class="bi bi-lock"></i>
+                            Set the status to <b>In Progress</b> first, then you can set a target completion date.
                         </p>
 
                     <?php endif; ?>
@@ -1164,18 +1131,8 @@ function rvRenderCard(
 
     <?php endforeach; ?>
 
-        <!-- ==================================================
-         ACTUAL STATUS HISTORY DATA
-
-         Stored in hidden templates so the existing
-         drawer JavaScript can display the selected
-         report's own history.
-
-         This does not create fake history entries.
-    ================================================== -->
-
     <!-- ======================================================
-         REPORT STATUS HISTORY DATA
+         REPORT STATUS HISTORY DATA (hidden templates)
 
          Current status comes from reports.statusID.
          Previous status changes come from reportHistory.
@@ -1187,7 +1144,6 @@ function rvRenderCard(
 
             <?php
             $historyReportID = $historyReport["reportID"];
-
             $currentStatusID = $historyReport["statusID"];
             $currentStatusName = $historyReport["statusName"];
 
@@ -1197,128 +1153,49 @@ function rvRenderCard(
 
             if (!empty($entries)) {
                 $lastEntry = end($entries);
-
-                $hasCurrentStatusInHistory =
-                    $lastEntry["statusID"] === $currentStatusID;
-
+                $hasCurrentStatusInHistory = $lastEntry["statusID"] === $currentStatusID;
                 reset($entries);
             }
             ?>
 
-            <div
-                data-history-report-id="<?= rvEscape(
-                    $historyReportID
-                ) ?>"
-            >
+            <div data-history-report-id="<?= rvEscape($historyReportID) ?>">
 
-                <?php if (empty($entries)): ?>
+                <?php foreach ($entries as $entry): ?>
 
-                    <!-- CURRENT STATUS FROM reports.statusID -->
+                    <?php
+                    $changedBy = trim(($entry["firstName"] ?? "") . " " . ($entry["lastName"] ?? ""));
+                    if ($changedBy === "") {
+                        $changedBy = "User unavailable";
+                    }
+                    ?>
 
-                    <div class="manage-history-item">
+                    <div class="manage-history-item rv-history-item rv-history-<?= rvEscape(rvStatusClass($entry["statusName"])) ?>">
+                        <span class="rv-history-dot"></span>
 
-                        <strong>
-                            <span
-                                class="status-badge status-<?= rvEscape(
-                                    rvStatusClass($currentStatusName)
-                                ) ?>"
-                            >
-                                <?= rvEscape($currentStatusName) ?>
-                            </span>
-                        </strong>
+                        <div>
+                            <strong><?= rvEscape($entry["statusName"]) ?></strong>
+                            <small>
+                                <?= rvEscape(rvDate($entry["dateChanged"])) ?> · by <?= rvEscape($changedBy) ?>
+                            </small>
 
-                        <small>
-                            Current Report Status
-                        </small>
-
+                            <?php if (trim((string) ($entry["remarks"] ?? "")) !== ""): ?>
+                                <p><?= rvEscape($entry["remarks"]) ?></p>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
-                <?php else: ?>
+                <?php endforeach; ?>
 
-                    <!-- ACTUAL STATUS CHANGE HISTORY -->
+                <?php if (!$hasCurrentStatusInHistory): ?>
 
-                    <?php foreach ($entries as $entry): ?>
+                    <div class="manage-history-item rv-history-item rv-history-<?= rvEscape(rvStatusClass($currentStatusName)) ?> is-current">
+                        <span class="rv-history-dot"></span>
 
-                        <?php
-                        $changedBy = trim(
-                            ($entry["firstName"] ?? "") . " " .
-                            ($entry["lastName"] ?? "")
-                        );
-
-                        if ($changedBy === "") {
-                            $changedBy = "User unavailable";
-                        }
-                        ?>
-
-                        <div class="manage-history-item">
-
-                            <strong>
-                                <span
-                                    class="status-badge status-<?= rvEscape(
-                                        rvStatusClass(
-                                            $entry["statusName"]
-                                        )
-                                    ) ?>"
-                                >
-                                    <?= rvEscape(
-                                        $entry["statusName"]
-                                    ) ?>
-                                </span>
-                            </strong>
-
-                            <small>
-                                <i class="bi bi-calendar3"></i>
-
-                                <?= rvEscape(
-                                    rvDate($entry["dateChanged"])
-                                ) ?>
-
-                                &nbsp;—&nbsp;
-
-                                <i class="bi bi-person"></i>
-
-                                <?= rvEscape($changedBy) ?>
-                            </small>
-
-                            <?php if (
-                                trim(
-                                    (string) ($entry["remarks"] ?? "")
-                                ) !== ""
-                            ): ?>
-
-                                <p>
-                                    <?= rvEscape($entry["remarks"]) ?>
-                                </p>
-
-                            <?php endif; ?>
-
+                        <div>
+                            <strong><?= rvEscape($currentStatusName) ?></strong>
+                            <small>Current status</small>
                         </div>
-
-                    <?php endforeach; ?>
-
-                    <!-- CURRENT STATUS IF NOT IN LATEST HISTORY -->
-
-                    <?php if (!$hasCurrentStatusInHistory): ?>
-
-                        <div class="manage-history-item">
-
-                            <strong>
-                                <span
-                                    class="status-badge status-<?= rvEscape(
-                                        rvStatusClass($currentStatusName)
-                                    ) ?>"
-                                >
-                                    <?= rvEscape($currentStatusName) ?>
-                                </span>
-                            </strong>
-
-                            <small>
-                                Current Report Status
-                            </small>
-
-                        </div>
-
-                    <?php endif; ?>
+                    </div>
 
                 <?php endif; ?>
 
@@ -1330,192 +1207,97 @@ function rvRenderCard(
 
     <!-- ==================================================
          SCREEN 5: READ-ONLY REPORT DETAILS
-
-         Status History is displayed here.
     ================================================== -->
 
-    <section
-        id="individualReportScreen"
-        class="individual-report-screen"
-        hidden
-    >
+    <section id="individualReportScreen" class="rv-screen individual-report-screen" hidden>
 
-        <header class="individual-report-header">
-
-            <button
-                type="button"
-                id="backToReportList"
-                class="back-report-button"
-            >
-
-                <i class="bi bi-arrow-left"></i>
-                Back to Reports
-
+        <header class="rv-header">
+            <button type="button" id="backToReportList" class="rv-back">
+                <i class="bi bi-arrow-left"></i> Back
             </button>
 
+            <button type="button" class="rv-icon-btn" data-close-report-view aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
         </header>
 
-        <div class="individual-report-card">
+        <!-- Photos -->
+        <div class="rv-gallery" id="detailImageContainer">
+            <a class="rv-gallery-main" id="detailImageLink" href="#" target="_blank" rel="noopener">
+                <img id="detailImage" src="" alt="Report photo">
+                <span class="rv-gallery-zoom"><i class="bi bi-arrows-fullscreen"></i> Open full size</span>
+            </a>
 
-            <!-- REPORT IMAGE -->
-
-            <div
-                class="individual-report-image"
-                id="detailImageContainer"
-                hidden
-            >
-
-                <img
-                    id="detailImage"
-                    src=""
-                    alt="Report attachment"
-                >
-
+            <div class="rv-gallery-empty" id="detailImageEmpty" hidden>
+                <i class="bi bi-image"></i>
+                <span>No photo was attached to this report</span>
             </div>
 
-            <h2>Report Details</h2>
+            <div class="rv-gallery-thumbs" id="detailImageThumbs"></div>
+        </div>
 
-            <h4>
-                <i class="bi bi-file-earmark-text"></i>
-                Report Information
-            </h4>
-
-            <!-- CATEGORY -->
-
-            <div class="individual-report-field">
-
-                <label>Category</label>
-
-                <p id="detailCategory"></p>
-
+        <div class="rv-detail-head">
+            <div class="rv-detail-tags">
+                <span class="rv-tag" id="detailCategory"></span>
+                <span id="detailStatus"></span>
             </div>
 
-            <!-- REPORT ID -->
+            <h2 id="detailTitle">Report details</h2>
+        </div>
 
-            <div class="individual-report-field">
-
-                <label>Report ID</label>
-
-                <p id="detailReportID"></p>
-
+        <!-- Key facts -->
+        <dl class="rv-facts">
+            <div>
+                <dt><i class="bi bi-hash"></i> Report ID</dt>
+                <dd id="detailReportID"></dd>
             </div>
 
-            <!-- LOCATION -->
-
-            <div class="individual-report-field">
-
-                <label>Location</label>
-
-                <p id="detailLocation"></p>
-
+            <div>
+                <dt><i class="bi bi-calendar3"></i> Date reported</dt>
+                <dd id="detailDate"></dd>
             </div>
 
-            <!-- DESCRIPTION -->
-
-            <div class="individual-report-field">
-
-                <label>Description</label>
-
-                <p
-                    id="detailDescription"
-                    class="individual-report-description"
-                ></p>
-
+            <div class="rv-facts-wide">
+                <dt><i class="bi bi-geo-alt"></i> Location</dt>
+                <dd id="detailLocation"></dd>
             </div>
 
-            <!-- STATUS -->
-
-            <div class="individual-report-field">
-
-                <label>Status</label>
-
-                <p id="detailStatus"></p>
-
+            <div class="rv-facts-wide" id="detailTimelineContainer" hidden>
+                <dt><i class="bi bi-flag"></i> Target completion</dt>
+                <dd id="detailTimeline"></dd>
             </div>
+        </dl>
 
-            <!-- DATES -->
+        <!-- Description -->
+        <div class="rv-panel">
+            <h3><i class="bi bi-chat-left-text"></i> Description</h3>
+            <p id="detailDescription" class="rv-description"></p>
+        </div>
 
-            <div class="individual-report-section">
+        <!-- Resident -->
+        <div class="rv-panel">
+            <h3><i class="bi bi-person"></i> Reported by</h3>
 
-                <div class="individual-report-field">
+            <div class="rv-resident">
+                <span class="rv-resident-avatar" id="detailResidentInitial">R</span>
 
-                    <label>Date Reported</label>
+                <div>
+                    <strong id="detailResident"></strong>
 
-                    <p id="detailDate"></p>
-
+                    <div class="rv-resident-contacts">
+                        <span><i class="bi bi-envelope"></i> <span id="detailEmail"></span></span>
+                        <span><i class="bi bi-telephone"></i> <span id="detailContact"></span></span>
+                    </div>
                 </div>
-
-                <div
-                    class="individual-report-field"
-                    id="detailTimelineContainer"
-                    hidden
-                >
-
-                    <label>
-                        Expected Completion / Timeline
-                    </label>
-
-                    <p id="detailTimeline"></p>
-
-                </div>
-
             </div>
+        </div>
 
-            <!-- RESIDENT INFORMATION -->
-
-            <div class="individual-report-section">
-
-                <h4>
-                    <i class="bi bi-person"></i>
-                    Resident Information
-                </h4>
-
-                <div class="individual-report-field">
-
-                    <label>Resident Name</label>
-
-                    <p id="detailResident"></p>
-
-                </div>
-
-                <div class="individual-report-field">
-
-                    <label>Email Address</label>
-
-                    <p id="detailEmail"></p>
-
-                </div>
-
-                <div class="individual-report-field">
-
-                    <label>Contact Number</label>
-
-                    <p id="detailContact"></p>
-
-                </div>
-
-            </div>
-
-            <!-- STATUS HISTORY -->
-
-            <div
-            class="manage-history-panel"
-            id="detailStatusHistoryPanel"
-            hidden
-            >
-
-                <h3>
-                    <i class="bi bi-clock-history"></i>
-                    Report Status History
-                </h3>
-
-                <div id="detailStatusHistory"></div>
-
-            </div>
-
+        <!-- Status history -->
+        <div class="rv-panel manage-history-panel" id="detailStatusHistoryPanel" hidden>
+            <h3><i class="bi bi-clock-history"></i> Status history</h3>
+            <div class="rv-history" id="detailStatusHistory"></div>
         </div>
 
     </section>
 
 </div>
-

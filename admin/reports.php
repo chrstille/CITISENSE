@@ -44,7 +44,6 @@ function reportsPrepare(mysqli $conn, string $sql): mysqli_stmt
    FILTER INPUTS
 ========================================================= */
 
-
 /* ==========================================
    APPLY FILTERS ONLY WHEN SUBMITTED
 ========================================== */
@@ -657,7 +656,7 @@ $stmt->close();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>CitiSense - Reports</title>
+    <title>Reports · CitiSense</title>
 
     <link
         href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
@@ -665,505 +664,202 @@ $stmt->close();
     >
 
     <link rel="stylesheet" href="../css/dashboard.css">
-    <link rel="stylesheet" href="../css/reports.css">
-    <link rel="stylesheet" href="../css/reportView.css">
+    <link rel="stylesheet" href="../css/reports.css?v=2">
+    <link rel="stylesheet" href="../css/reportView.css?v=2">
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 <body>
 
 <?php include __DIR__ . "/partial/sidebar.php"; ?>
 
+<?php
+function reportsCategoryIcon(string $name): string
+{
+    $name = strtolower($name);
+    if (str_contains($name, "waste") || str_contains($name, "garbage")) return "bi-trash3";
+    if (str_contains($name, "pothole") || str_contains($name, "road")) return "bi-cone-striped";
+    if (str_contains($name, "drain") || str_contains($name, "flood")) return "bi-water";
+    return "bi-three-dots";
+}
+
+$activeFilterCount = count(array_filter([
+    $startDate,
+    $endDate,
+    $selectedCategory,
+    $selectedStatus
+], static fn($value) => $value !== ""));
+?>
+
 <main class="main-content">
 
-    <header class="reports-header">
+    <!-- HEADER -->
+    <header class="page-header">
         <div>
             <h1>Reports</h1>
             <p>
-                View and manage reports submitted by the community
-                in <?= reportsEscape($barangayName) ?>.
+                View and manage reports submitted by the community in
+                <strong><?= reportsEscape($barangayName) ?></strong>.
             </p>
+        </div>
+
+        <div class="page-header-actions">
+            <?php include __DIR__ . "/partial/notification_bell.php"; ?>
+
+            <button type="button" class="btn btn-primary" id="generateReportButton">
+                <i class="bi bi-file-earmark-arrow-down"></i>
+                Generate Report
+            </button>
         </div>
     </header>
 
-    <!-- FILTERS -->
+    <!-- STATUS SUMMARY -->
+    <section class="rp-summary" aria-label="Report status summary">
+        <?php
+        $summaryItems = [
+            ["Pending", $statusCounts["Pending"], "pending", "bi-hourglass-split"],
+            ["In Progress", $statusCounts["In Progress"], "progress", "bi-arrow-repeat"],
+            ["Overdue", $statusCounts["Overdue"], "overdue", "bi-exclamation-triangle"],
+            ["Resolved", $statusCounts["Resolved"], "resolved", "bi-check2-circle"],
+        ];
+        ?>
 
-    <form
-            class="analytics-filters"
-            method="GET"
-        >
-            <input
-                type="hidden"
-                name="filters_applied"
-                value="1"
-            >
-
-            <div class="analytics-filter">
-
-                <i class="bi bi-calendar3"></i>
-
-                <input
-                    type="date"
-                    name="start_date"
-                    value="<?php
-                        echo htmlspecialchars(
-                            $startDate
-                        );
-                    ?>"
-                >
-
-                <span>
-                    -
-                </span>
-
-                <input
-                    type="date"
-                    name="end_date"
-                    value="<?php
-                        echo htmlspecialchars(
-                            $endDate
-                        );
-                    ?>"
-                >
-
-            </div>
-
-            <div class="analytics-filter">
-
-                <i class="bi bi-tags"></i>
-
-                <select
-                    name="categoryID"
-                >
-
-                    <option value="">
-                        All Categories
-                    </option>
-
-
-                    <?php foreach ($categories as $category): ?>
-
-                        <option
-                            value="<?php
-                                echo htmlspecialchars(
-                                    $category["categoryID"]
-                                );
-                            ?>"
-                            <?php
-                            echo
-                                $selectedCategory
-                                === $category["categoryID"]
-                                    ? "selected"
-                                    : "";
-                            ?>
-                        >
-
-                            <?php
-                            echo htmlspecialchars(
-                                $category["categoryName"]
-                            );
-                            ?>
-
-                        </option>
-
-                    <?php endforeach; ?>
-
-                </select>
-
-            </div>
-
-            <div class="analytics-filter">
-
-                <i class="bi bi-filter"></i>
-
-                <select
-                    name="statusID"
-                >
-
-                    <option value="">
-                        All Statuses
-                    </option>
-
-
-                    <?php foreach ($statuses as $status): ?>
-
-                        <?php
-                        // Do not display rejected
-                        // if it exists in an older database.
-                        if (
-                            strtolower(
-                                trim(
-                                    $status["statusName"]
-                                )
-                            ) === "rejected"
-                        ) {
-                            continue;
-                        }
-                        ?>
-
-                        <option
-                            value="<?php
-                                echo htmlspecialchars(
-                                    $status["statusID"]
-                                );
-                            ?>"
-                            <?php
-                            echo
-                                $selectedStatus
-                                === $status["statusID"]
-                                    ? "selected"
-                                    : "";
-                            ?>
-                        >
-
-                            <?php
-                            echo htmlspecialchars(
-                                $status["statusName"]
-                            );
-                            ?>
-
-                        </option>
-
-                    <?php endforeach; ?>
-
-                </select>
-
-            </div>
-
-            <button
-                type="submit"
-                class="analytics-filter-button"
-            >
-
-                <i class="bi bi-sliders"></i>
-
-                Apply Filters
-
-            </button>
-
-            <a
-                href="reports.php"
-                class="analytics-reset-button"
-            >
-
-                Reset
-
-            </a>
-
-
-        </form>
-
-    <!-- Search bar 
-    <form method="GET" action="reports.php" id="reportsSearchForm" class="reports-search-form">
-        <input type="hidden" name="startDate" value="<?= reportsEscape($startDate) ?>">
-        <input type="hidden" name="endDate" value="<?= reportsEscape($endDate) ?>">
-        <input type="hidden" name="category" value="<?= reportsEscape($selectedCategory) ?>">
-        <input type="hidden" name="status" value="<?= reportsEscape($selectedStatus) ?>">
-
-        <i class="fa-solid fa-magnifying-glass"></i>
-
-        <input
-            type="search"
-            id="reportSearch"
-            name="search"
-            value="<?= reportsEscape($searchQuery) ?>"
-            placeholder="Search reports..."
-            aria-label="Search reports"
-        >
-    </form> -->
-
-                <!-- REPORTS LAYOUT -->
-
-                <section class="reports-layout">
-
-                <div class="reports-list-card">
-
-                    <div class="reports-table-wrapper">
-                        <table class="reports-table">
-
-                <?php
-                $overviewFilters = array_filter([
-                    "start_date" => $startDate,
-                    "end_date" => $endDate,
-                    "categoryID" => $selectedCategory,
-                    "statusID" => $selectedStatus
-                ], static fn($value) => $value !== "");
-
-                $overviewURL = "reportStatusOverview.php";
-
-                if (!empty($overviewFilters)) {
-                    $overviewURL .= "?" . http_build_query($overviewFilters);
-                }
-                ?>
-
-                <div class="reports-card-header">
-                    <h2>
-                        Matching Reports
-                        <span>(<?= $groupTotalReports ?>)</span>
-                    </h2>
+        <?php foreach ($summaryItems as [$label, $count, $tone, $icon]): ?>
+            <div class="rp-summary-item rp-<?= $tone ?>">
+                <span class="rp-summary-icon"><i class="bi <?= $icon ?>"></i></span>
+                <div>
+                    <strong><?= (int) $count ?></strong>
+                    <small><?= $label ?></small>
                 </div>
-
             </div>
+        <?php endforeach; ?>
+    </section>
 
-            <div class="reports-table-wrapper">
-                <table class="reports-table">
+    <!-- REPORTS CARD -->
+    <section class="rp-card">
 
-                    <thead>
-                        <tr>
-                            <th>Issue</th>
-                            <th>Location</th>
-                            <th>No. of Reports</th>
-                            <th>Latest Report</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+        <div class="rp-card-header">
+            <h2>
+                Reports by issue
+                <span><?= $groupTotalReports ?> total</span>
+            </h2>
 
-                    <tbody id="reportsTableBody">
-
-                    <?php if (!empty($reportGroups)): ?>
-    
-                        <?php foreach ($reportGroups as $report): ?>
-
-                            <?php
-                            $categoryName = (string) $report["categoryName"];
-
-                            $categoryBoardFilters = [
-                                "categoryID" => (string) $report["categoryID"]
-                            ];
-
-                            $categoryBoardURL =
-                                "reportStatusOverview.php?" .
-                                http_build_query($categoryBoardFilters);
-
-                            $address = (string) ($report["address"] ?? "");
-                            $locationID = (string) ($report["locationID"] ?? "");
-                            $latestDate = $report["latestReport"] ?? null;
-
-                            $latestTimestamp = $latestDate
-                                ? strtotime($latestDate)
-                                : false;
-
-                            $searchText = strtolower(
-                                $categoryName . " " . $address
-                            );
-                            ?>
-
-
-                            <tr
-                                class="report-row clickable-report-row"
-                                data-search="<?= reportsEscape($searchText) ?>"
-                                data-category-id="<?= reportsEscape($report["categoryID"]) ?>"
-                                data-location-id="<?= reportsEscape($locationID) ?>"
-                                data-overview-url="<?= reportsEscape($categoryBoardURL) ?>"
-                                tabindex="0"
-                                aria-label="View <?= reportsEscape($categoryName) ?> report overview"
-                            >
-
-                                <td>
-                                    <div class="issue-cell">
-                                        <div class="issue-icon">
-                                            <i class="bi bi-exclamation-circle"></i>
-                                        </div>
-
-                                        <span>
-                                            <?= reportsEscape($categoryName) ?>
-                                        </span>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <div class="location-cell">
-                                        <i class="bi bi-geo-alt"></i>
-
-                                        <span>
-                                            <?= reportsEscape(
-                                                $address !== ""
-                                                    ? $address
-                                                    : "Location unavailable"
-                                            ) ?>
-                                        </span>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <div class="report-count">
-                                        <strong>
-                                            <?= (int) $report["totalReports"] ?>
-                                        </strong>
-                                        <span>
-                                            <?= (int) $report["totalReports"] === 1
-                                                ? "report"
-                                                : "reports" ?>
-                                        </span>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <div class="latest-report">
-                                        <strong>
-                                            <?= $latestTimestamp
-                                                ? date("M d, Y", $latestTimestamp)
-                                                : "Unknown date" ?>
-                                        </strong>
-
-                                        <span>
-                                            <?= $latestTimestamp
-                                                ? date("g:i A", $latestTimestamp)
-                                                : "" ?>
-                                        </span>
-                                    </div>
-                                </td>
-
-                                <td>
-                                    <button
-                                        type="button"
-                                        class="view-button view-report-btn"
-                                        title="View reports"
-                                        aria-label="View <?= reportsEscape($categoryName) ?> reports"
-                                        data-category-id="<?= reportsEscape($report["categoryID"]) ?>"
-                                        data-location-id="<?= reportsEscape($locationID) ?>"
-                                    >
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                </td>
-
-                            </tr>
-
-                        <?php endforeach; ?>
-
-                    <?php else: ?>
-
-                        <tr>
-                            <td colspan="5" class="empty-table">
-                                <i class="bi bi-inbox"></i>
-                                <strong>No reports found</strong>
-                                <span>
-                                    Try changing or resetting your filters.
-                                </span>
-                            </td>
-                        </tr>
-
-                    <?php endif; ?>
-
-                    </tbody>
-
-                </table>
-            </div>
-
-            <div class="reports-card-footer">
-                <span id="reportsShowing">
-                    Showing <?= count($reportGroups) ?>
-                    group<?= count($reportGroups) === 1 ? "" : "s" ?>
-                </span>
-            </div>
-
+            <p class="rp-help">
+                <i class="bi bi-info-circle"></i>
+                Click a row for its full overview, or
+                <i class="bi bi-eye"></i> to review pending reports.
+            </p>
         </div>
 
-        <!-- RIGHT COLUMN -->
+        <div class="reports-table-wrapper">
+            <table class="reports-table rp-table">
 
-        <div class="reports-right-column">
+                <thead>
+                    <tr>
+                        <th>Issue</th>
+                        <th>Latest location</th>
+                        <th>Reports</th>
+                        <th>Latest report</th>
+                        <th class="rp-actions-col">Pending</th>
+                    </tr>
+                </thead>
 
-            <div class="overview-card">
+                <tbody id="reportsTableBody">
 
-                <div class="side-card-header">
-                    <h2>Reports Overview</h2>
-                    <span>
-                        <?= $startDate !== "" || $endDate !== ""
-                            ? "Selected Dates"
-                            : "All Time" ?>
-                    </span>
-                </div>
+                <?php if (!empty($reportGroups)): ?>
 
-                <div class="overview-content">
+                    <?php foreach ($reportGroups as $report): ?>
 
-                    <div
-                        class="donut-chart"
-                        style="
-                            --pending: <?= $pendingPercent ?>%;
-                            --progress: <?= $inProgressPercent ?>%;
-                            --overdue: <?= $overduePercent ?>%;
-                            --resolved: <?= $resolvedPercent ?>%;
-                        "
-                    >
-                        <div class="donut-center">
-                            <strong><?= $overviewTotal ?></strong>
-                            <span>Total</span>
-                        </div>
-                    </div>
+                        <?php
+                        $categoryName = (string) $report["categoryName"];
 
-                    <div class="overview-legend">
+                        $categoryBoardURL =
+                            "reportStatusOverview.php?" .
+                            http_build_query(["categoryID" => (string) $report["categoryID"]]);
 
-                        <div class="legend-item">
-                            <span class="legend-dot pending"></span>
-                            <div>
-                                <strong>Pending</strong>
-                                <small>
-                                    <?= $statusCounts["Pending"] ?>
-                                    (<?= $pendingPercent ?>%)
-                                </small>
-                            </div>
-                        </div>
+                        $address = (string) ($report["address"] ?? "");
+                        $locationID = (string) ($report["locationID"] ?? "");
+                        $latestDate = $report["latestReport"] ?? null;
+                        $latestTimestamp = $latestDate ? strtotime($latestDate) : false;
+                        $groupCount = (int) $report["totalReports"];
+                        $searchText = strtolower($categoryName . " " . $address);
+                        ?>
 
-                        <div class="legend-item">
-                            <span class="legend-dot progress"></span>
-                            <div>
-                                <strong>In Progress</strong>
-                                <small>
-                                    <?= $statusCounts["In Progress"] ?>
-                                    (<?= $inProgressPercent ?>%)
-                                </small>
-                            </div>
-                        </div>
+                        <tr
+                            class="report-row clickable-report-row"
+                            data-search="<?= reportsEscape($searchText) ?>"
+                            data-category-id="<?= reportsEscape($report["categoryID"]) ?>"
+                            data-location-id="<?= reportsEscape($locationID) ?>"
+                            data-overview-url="<?= reportsEscape($categoryBoardURL) ?>"
+                            tabindex="0"
+                            aria-label="View <?= reportsEscape($categoryName) ?> report overview"
+                        >
 
-                        <div class="legend-item">
-                            <span class="legend-dot overdue"></span>
-                            <div>
-                                <strong>Overdue</strong>
-                                <small>
-                                    <?= $statusCounts["Overdue"] ?>
-                                    (<?= $overduePercent ?>%)
-                                </small>
-                            </div>
-                        </div>
+                            <td>
+                                <div class="issue-cell">
+                                    <span class="issue-icon">
+                                        <i class="bi <?= reportsCategoryIcon($categoryName) ?>"></i>
+                                    </span>
+                                    <div>
+                                        <strong><?= reportsEscape($categoryName) ?></strong>
+                                        <small>Open overview <i class="bi bi-arrow-right"></i></small>
+                                    </div>
+                                </div>
+                            </td>
 
-                        <div class="legend-item">
-                            <span class="legend-dot resolved"></span>
-                            <div>
-                                <strong>Resolved</strong>
-                                <small>
-                                    <?= $statusCounts["Resolved"] ?>
-                                    (<?= $resolvedPercent ?>%)
-                                </small>
-                            </div>
-                        </div>
+                            <td>
+                                <div class="location-cell">
+                                    <i class="bi bi-geo-alt"></i>
+                                    <span><?= reportsEscape($address !== "" ? $address : "No reports yet") ?></span>
+                                </div>
+                            </td>
 
-                    </div>
+                            <td>
+                                <span class="report-count">
+                                    <strong><?= $groupCount ?></strong>
+                                    <?= $groupCount === 1 ? "report" : "reports" ?>
+                                </span>
+                            </td>
 
-                </div>
-            </div>
+                            <td>
+                                <div class="latest-report">
+                                    <strong><?= $latestTimestamp ? date("M j, Y", $latestTimestamp) : "—" ?></strong>
+                                    <span><?= $latestTimestamp ? date("g:i A", $latestTimestamp) : "" ?></span>
+                                </div>
+                            </td>
 
-            <!-- QUICK ACTIONS -->
+                            <td class="rp-actions-col">
+                                <button
+                                    type="button"
+                                    class="view-button view-report-btn"
+                                    title="Review pending <?= reportsEscape($categoryName) ?> reports"
+                                    aria-label="Review pending <?= reportsEscape($categoryName) ?> reports"
+                                    data-category-id="<?= reportsEscape($report["categoryID"]) ?>"
+                                    data-location-id="<?= reportsEscape($locationID) ?>"
+                                >
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </td>
 
-            <div class="quick-actions-card">
-                <h2>Quick Actions</h2>
+                        </tr>
 
-                <div class="quick-actions">
-<!-- 
-                    <button type="button" id="openExportModal">
-                        <i class="bi bi-download"></i>
-                        <span>Export Reports</span>
-                    </button> -->
+                    <?php endforeach; ?>
 
-                    <button
-                        type="button"
-                        id="generateReportButton"
-                    >
-                        <i class="bi bi-file-earmark-text"></i>
-                        <span>Generate Report</span>
-                    </button>
+                <?php else: ?>
 
-                </div>
-            </div>
+                    <tr>
+                        <td colspan="5" class="empty-table">
+                            <i class="bi bi-inbox"></i>
+                            <strong>No reports found</strong>
+                            <span>Try changing or clearing your filters.</span>
+                        </td>
+                    </tr>
 
+                <?php endif; ?>
+
+                </tbody>
+
+            </table>
         </div>
 
     </section>
@@ -1171,123 +867,105 @@ $stmt->close();
 </main>
 
 <!-- EXPORT MODAL -->
-
-<div
-    id="exportModal"
-    class="export-modal-overlay"
-    hidden
->
-    <div class="export-modal">
+<div id="exportModal" class="export-modal-overlay" hidden>
+    <div class="export-modal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
 
         <div class="export-modal-header">
-            <h2>Export Reports</h2>
-
-            <button
-                type="button"
-                id="closeExportModal"
-                aria-label="Close"
-            >
+            <span class="export-modal-icon"><i class="bi bi-download"></i></span>
+            <div>
+                <h2 id="exportModalTitle">Choose a format</h2>
+                <p id="exportPeriodLabel">Download your generated report.</p>
+            </div>
+            <button type="button" id="closeExportModal" class="modal-close" aria-label="Close">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
 
-        <p>Select a format to export the reports.</p>
-
         <div class="export-modal-options">
-
-            <a href="export_reports.php?format=pdf">
-                <i class="bi bi-file-earmark-pdf"></i>
-                Export as PDF
+            <a href="export_reports.php?format=pdf" class="export-option">
+                <span class="export-option-icon pdf"><i class="bi bi-file-earmark-pdf"></i></span>
+                <span><strong>PDF</strong><small>Best for printing and sharing</small></span>
+                <i class="bi bi-chevron-right"></i>
             </a>
 
-            <a href="export_reports.php?format=csv">
-                <i class="bi bi-filetype-csv"></i>
-                Export as CSV
+            <a href="export_reports.php?format=csv" class="export-option">
+                <span class="export-option-icon csv"><i class="bi bi-filetype-csv"></i></span>
+                <span><strong>CSV</strong><small>Open in Excel or Google Sheets</small></span>
+                <i class="bi bi-chevron-right"></i>
             </a>
 
-            <a href="export_reports.php?format=docx">
-                <i class="bi bi-file-earmark-word"></i>
-                Export as Word
+            <a href="export_reports.php?format=docx" class="export-option">
+                <span class="export-option-icon docx"><i class="bi bi-file-earmark-word"></i></span>
+                <span><strong>Word</strong><small>Editable document</small></span>
+                <i class="bi bi-chevron-right"></i>
             </a>
-
         </div>
+
+        <button type="button" class="btn btn-light export-back" id="exportBackButton">
+            <i class="bi bi-arrow-left"></i> Change period
+        </button>
 
     </div>
 </div>
 
 <!-- GENERATE REPORT MODAL -->
-<div
-    id="generateReportModal"
-    class="export-modal-overlay"
-    hidden
->
-    <div class="export-modal">
-        <div class="export-modal-header">
-            <h2>Generate Report</h2>
+<div id="generateReportModal" class="export-modal-overlay" hidden>
+    <div class="export-modal" role="dialog" aria-modal="true" aria-labelledby="generateModalTitle">
 
-            <button
-                type="button"
-                id="closeGenerateReportModal"
-                aria-label="Close"
-            >
+        <div class="export-modal-header">
+            <span class="export-modal-icon"><i class="bi bi-file-earmark-bar-graph"></i></span>
+            <div>
+                <h2 id="generateModalTitle">Generate Report</h2>
+                <p>Pick the reporting period you want to export.</p>
+            </div>
+            <button type="button" id="closeGenerateReportModal" class="modal-close" aria-label="Close">
                 <i class="bi bi-x-lg"></i>
             </button>
         </div>
 
-        <p>Select the reporting period for the generated report.</p>
-
         <form id="generateReportForm">
 
-            <label for="reportPeriod">Reporting Period</label>
+            <fieldset class="period-options">
+                <legend class="sr-only">Reporting period</legend>
 
-            <select
-                id="reportPeriod"
-                name="period"
-                required
-            >
-                <option value="">Select a period</option>
-                <option value="day">Within the Day</option>
-                <option value="3months">Every 3 Months</option>
-                <option value="6months">Every 6 Months</option>
-                <option value="year">Yearly</option>
-            </select>
+                <?php
+                $periods = [
+                    "day"     => ["Today", "Reports submitted within the day", "bi-sun"],
+                    "3months" => ["Last 3 months", "Quarterly summary", "bi-calendar3"],
+                    "6months" => ["Last 6 months", "Half-year summary", "bi-calendar2-range"],
+                    "year"    => ["Last 12 months", "Yearly summary", "bi-calendar-check"],
+                ];
+                ?>
 
-            <div class="export-modal-options">
-                <button type="submit">
-                    <i class="bi bi-file-earmark-text"></i>
-                    Export Report
-                </button>
-            </div>
+                <?php foreach ($periods as $value => [$label, $hint, $icon]): ?>
+                    <label class="period-option">
+                        <input type="radio" name="period" value="<?= $value ?>" <?= $value === "day" ? "checked" : "" ?>>
+                        <span class="period-card">
+                            <i class="bi <?= $icon ?>"></i>
+                            <strong><?= $label ?></strong>
+                            <small><?= $hint ?></small>
+                        </span>
+                    </label>
+                <?php endforeach; ?>
+            </fieldset>
+
+            <button type="submit" class="btn btn-primary export-continue">
+                Continue
+                <i class="bi bi-arrow-right"></i>
+            </button>
         </form>
     </div>
 </div>
 
 <!-- REPORT DRAWER -->
+<div class="report-drawer-overlay" id="reportDrawerOverlay"></div>
 
-<div
-    class="report-drawer-overlay"
-    id="reportDrawerOverlay"
-></div>
-
-<aside class="report-drawer" id="reportDrawer">
-    <div
-        id="reportDrawerContent"
-        class="report-drawer-loading"
-    >
-        <div class="drawer-spinner"></div>
-        <p>Select a report to view its details.</p>
-    </div>
+<aside class="report-drawer" id="reportDrawer" aria-label="Report details" aria-hidden="true">
+    <div id="reportDrawerContent" class="report-drawer-loading"></div>
 </aside>
 
 <!-- TOAST -->
-
-<div
-    id="reportToast"
-    class="report-toast"
-    role="status"
-    aria-live="polite"
-    hidden
->
+<div id="reportToast" class="report-toast" role="status" aria-live="polite" hidden>
     <i class="bi bi-check-circle-fill" id="reportToastIcon"></i>
     <span id="reportToastText"></span>
 </div>
@@ -1296,80 +974,61 @@ $stmt->close();
 "use strict";
 
 /* =========================================================
-   CLIENT-SIDE SEARCH
-
-   The PHP filters already apply on the server. This search
-   narrows the rows currently displayed without another reload.
+   CLICKABLE CATEGORY ROWS -> REPORT OVERVIEW
 ========================================================= */
-
-
-/* =============================================
-   CLICKABLE CATEGORY ROWS
-============================================= */
 
 document.querySelectorAll(".clickable-report-row").forEach(row => {
 
     function openCategoryOverview() {
         const url = row.dataset.overviewUrl;
-
-        if (url) {
-            window.location.href = url;
-        }
+        if (url) window.location.href = url;
     }
 
     row.addEventListener("click", function (event) {
-
-        // Preserve the existing eye action and other controls.
-        if (
-            event.target.closest(
-                ".view-report-btn, a, button, input, select"
-            )
-        ) {
-            return;
-        }
-
+        if (event.target.closest(".view-report-btn, a, button, input, select")) return;
         openCategoryOverview();
     });
 
     row.addEventListener("keydown", function (event) {
-
-        if (
-            event.target === row &&
-            (event.key === "Enter" || event.key === " ")
-        ) {
+        if (event.target === row && (event.key === "Enter" || event.key === " ")) {
             event.preventDefault();
             openCategoryOverview();
         }
     });
-
 });
 
-const searchInput = document.getElementById("reportSearch");
+/* =========================================================
+   HELPERS
+========================================================= */
 
-if (searchInput) {
-    searchInput.addEventListener("input", function () {
-        const searchValue = this.value.toLowerCase().trim();
-
-        document.querySelectorAll(".report-row").forEach(row => {
-            const text = row.dataset.search || "";
-
-            row.style.display = text.includes(searchValue) ? "" : "none";
-        });
-
-        updateVisibleCount();
-    });
+function reportsSafeMessage(value) {
+    const div = document.createElement("div");
+    div.textContent = String(value || "");
+    return div.innerHTML;
 }
 
-function updateVisibleCount() {
-    const rows = Array.from(document.querySelectorAll(".report-row"));
-    const visibleRows = rows.filter(row => row.style.display !== "none");
-    const label = document.getElementById("reportsShowing");
+function statusClass(name) {
+    return String(name || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+}
 
-    if (label) {
-        label.textContent =
-            "Showing " + visibleRows.length +
-            " of " + rows.length + " groups";
-    }
+function formatReportTimeline(value) {
+    if (!value) return "";
+
+    const date = new Date(value.replace(" ", "T"));
+
+    if (Number.isNaN(date.getTime())) return value;
+
+    return date.toLocaleString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+    });
 }
 
 /* =========================================================
@@ -1385,15 +1044,37 @@ let currentLocationID = "";
 let activeManageCategoryID = "";
 let activeOriginalID = "";
 let detailReturnScreen = null;
+let lastDrawerTrigger = null;
+
+function drawerSkeleton(message) {
+    return `
+        <div class="rv-loading">
+            <div class="rv-skel rv-skel-head"></div>
+            <div class="rv-skel rv-skel-bar"></div>
+            <div class="rv-skel rv-skel-card"></div>
+            <div class="rv-skel rv-skel-card"></div>
+            <div class="rv-skel rv-skel-card"></div>
+            <p>${reportsSafeMessage(message)}</p>
+        </div>
+    `;
+}
 
 function openReportDrawer() {
     reportDrawer.classList.add("open");
     reportDrawerOverlay.classList.add("open");
+    reportDrawer.setAttribute("aria-hidden", "false");
+    document.body.classList.add("drawer-open");
 }
 
 function closeReportDrawer() {
     reportDrawer.classList.remove("open");
     reportDrawerOverlay.classList.remove("open");
+    reportDrawer.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("drawer-open");
+
+    if (lastDrawerTrigger && lastDrawerTrigger.isConnected) {
+        lastDrawerTrigger.focus({ preventScroll: true });
+    }
 }
 
 reportDrawerOverlay.addEventListener("click", closeReportDrawer);
@@ -1414,25 +1095,16 @@ function showReportToast(message, isError = false) {
         return;
     }
 
-    if (reportToastTimer !== null) {
-        clearTimeout(reportToastTimer);
-    }
+    if (reportToastTimer !== null) clearTimeout(reportToastTimer);
 
     text.textContent = message;
+    icon.className = isError ? "bi bi-exclamation-circle-fill" : "bi bi-check-circle-fill";
 
-    icon.className = isError
-        ? "bi bi-exclamation-circle-fill"
-        : "bi bi-check-circle-fill";
-
-    toast.classList.toggle("report-toast-error", isError);
-    toast.classList.toggle("success", !isError);
     toast.classList.toggle("error", isError);
-
+    toast.classList.toggle("success", !isError);
     toast.hidden = false;
 
-    reportToastTimer = setTimeout(() => {
-        hideReportToast();
-    }, 1000);
+    reportToastTimer = setTimeout(hideReportToast, isError ? 5000 : 3200);
 }
 
 function hideReportToast() {
@@ -1443,120 +1115,108 @@ function hideReportToast() {
         reportToastTimer = null;
     }
 
-    if (toast) {
-        toast.hidden = true;
-    }
+    if (toast) toast.hidden = true;
 }
 
 /* =========================================================
-   LOAD REPORT DETAILS
-
-   reportView.php remains unchanged.
+   LOAD REPORT DRAWER CONTENT (reportView.php)
 ========================================================= */
 
-async function loadReportDrawer(categoryID, locationID) {
+async function loadReportDrawer(categoryID, locationID, keepContent = false) {
     currentCategoryID = categoryID;
     currentLocationID = locationID;
 
-    reportDrawerContent.innerHTML = `
-        <div class="drawer-spinner"></div>
-        <p>Loading report details...</p>
-    `;
+    if (!keepContent) {
+        reportDrawerContent.innerHTML = drawerSkeleton("Loading reports…");
+    } else {
+        reportDrawerContent.classList.add("is-refreshing");
+    }
 
     try {
-        const query = new URLSearchParams({
+        const endpoint = new URL("reportView.php", window.location.href);
+
+        endpoint.search = new URLSearchParams({
             categoryID: categoryID || "",
             locationID: locationID || ""
-        });
-
-        const endpoint = new URL(
-            "reportView.php",
-            window.location.href
-        );
-
-        endpoint.search = query.toString();
+        }).toString();
 
         const response = await fetch(endpoint.href, {
             method: "GET",
             cache: "no-store",
-            headers: {
-                "Accept": "text/html"
-            }
+            headers: { "Accept": "text/html" }
         });
 
         const html = await response.text();
 
-        console.log("HTTP status:", response.status);
-        console.log("Content type:", response.headers.get("content-type"));
-        console.log("Response HTML:", html);
-
         if (!response.ok) {
-            throw new Error(
-                `Unable to load report details (HTTP ${response.status}).`
-            );
+            throw new Error(`Unable to load report details (HTTP ${response.status}).`);
         }
 
         if (!html.trim()) {
-            throw new Error(
-                "The report details page returned an empty response."
-            );
+            throw new Error("The report details page returned an empty response.");
         }
 
         reportDrawerContent.innerHTML = html;
-
-        if (typeof initializeReportDrawer === "function") {
-            initializeReportDrawer();
-        }
-
         return true;
 
     } catch (error) {
         console.error("Report drawer error:", error);
 
         reportDrawerContent.innerHTML = `
-            <div class="report-view-error">
-                <i class="bi bi-exclamation-circle"></i>
-                <p>Unable to load report details.</p>
-                <small>${reportsSafeMessage(error.message)}</small>
+            <div class="rv-empty rv-error">
+                <span class="rv-empty-icon"><i class="bi bi-exclamation-triangle"></i></span>
+                <h3>Couldn't load reports</h3>
+                <p>${reportsSafeMessage(error.message)}</p>
+                <button type="button" class="btn btn-light" data-close-report-view>Close</button>
             </div>
         `;
 
-        showReportToast(
-            error.message || "Unable to load report details.",
-            true
-        );
-
+        showReportToast(error.message || "Unable to load report details.", true);
         return false;
+
+    } finally {
+        reportDrawerContent.classList.remove("is-refreshing");
     }
 }
 
 /* =========================================================
-   OPEN REPORT GROUP
+   OPEN A CATEGORY'S PENDING REPORTS (eye button)
 ========================================================= */
 
-document.querySelectorAll(".view-report-btn").forEach(button => {
-    button.addEventListener("click", async function () {
-        activeManageCategoryID = "";
-        activeOriginalID = "";
-        detailReturnScreen = null;
+async function openCategoryDrawer(categoryID, reportID = "") {
+    activeManageCategoryID = "";
+    activeOriginalID = "";
+    detailReturnScreen = null;
 
-        openReportDrawer();
+    openReportDrawer();
 
-        const loaded = await loadReportDrawer(
-            this.dataset.categoryId,
-            ""
-        );
+    const loaded = await loadReportDrawer(categoryID, "");
 
-        if (loaded) {
-            showGroupScreen();
+    if (!loaded) return;
+
+    showGroupScreen(false);
+
+    if (reportID) {
+        const root = getReportRoot();
+        const card = root && Array.from(
+            root.querySelectorAll(".duplicate-report-card[data-report-id]")
+        ).find(item => item.dataset.reportId === reportID && item.dataset.variant !== "summary");
+
+        if (card) {
+            openReadOnlyReport(card);
         }
+    }
+}
+
+document.querySelectorAll(".view-report-btn").forEach(button => {
+    button.addEventListener("click", function () {
+        lastDrawerTrigger = this;
+        openCategoryDrawer(this.dataset.categoryId);
     });
 });
 
 /* =========================================================
    DRAWER SCREEN NAVIGATION
-
-   These selectors correspond to the existing reportView.php.
 ========================================================= */
 
 function getReportRoot() {
@@ -1567,29 +1227,30 @@ function hideAllReportScreens(root) {
     if (!root) return;
 
     root.querySelectorAll(
-        "#reportGroupScreen, " +
-        "#manageCategoriesScreen, " +
-        ".manage-category-screen, " +
-        ".manage-original-screen, " +
-        "#individualReportScreen"
+        "#reportGroupScreen, #manageCategoriesScreen, .manage-category-screen, " +
+        ".manage-original-screen, #individualReportScreen"
     ).forEach(screen => {
         screen.hidden = true;
     });
 }
 
-function showReportScreen(screen) {
+function showReportScreen(screen, direction = "forward") {
     const root = getReportRoot();
 
     if (!root || !screen) return;
 
     hideAllReportScreens(root);
+
+    screen.classList.remove("enter-forward", "enter-back");
     screen.hidden = false;
+    void screen.offsetWidth;                       // restart the animation
+    screen.classList.add(direction === "back" ? "enter-back" : "enter-forward");
+
     reportDrawer.scrollTop = 0;
 }
 
-function showGroupScreen() {
+function showGroupScreen(animate = true) {
     const root = getReportRoot();
-
     if (!root) return;
 
     const screen = root.querySelector("#reportGroupScreen");
@@ -1598,350 +1259,269 @@ function showGroupScreen() {
         activeManageCategoryID = "";
         activeOriginalID = "";
         detailReturnScreen = null;
-        showReportScreen(screen);
+        showReportScreen(screen, animate ? "back" : "forward");
     }
 }
 
 function showManageCategories() {
     const root = getReportRoot();
-
     if (!root) return;
 
     activeOriginalID = "";
-
-    showReportScreen(
-        root.querySelector("#manageCategoriesScreen")
-    );
+    showReportScreen(root.querySelector("#manageCategoriesScreen"), "back");
 }
 
-function showManageCategory(categoryID) {
+function showManageCategory(categoryID, direction = "forward") {
     const root = getReportRoot();
-
     if (!root) return;
 
-    const screen = Array.from(
-        root.querySelectorAll(".manage-category-screen")
-    ).find(item => item.dataset.categoryScreen === categoryID);
+    const screen = Array.from(root.querySelectorAll(".manage-category-screen"))
+        .find(item => item.dataset.categoryScreen === categoryID);
 
     if (!screen) return;
 
     activeManageCategoryID = categoryID;
     activeOriginalID = "";
 
-    showReportScreen(screen);
+    showReportScreen(screen, direction);
 }
 
 function showManageOriginal(reportID) {
     const root = getReportRoot();
-
     if (!root) return;
 
-    const screen = Array.from(
-        root.querySelectorAll(".manage-original-screen")
-    ).find(item => item.dataset.originalScreen === reportID);
+    const screen = Array.from(root.querySelectorAll(".manage-original-screen"))
+        .find(item => item.dataset.originalScreen === reportID);
 
     if (!screen) return;
 
     activeOriginalID = reportID;
     activeManageCategoryID = screen.dataset.parentCategory || "";
 
-    showReportScreen(screen);
+    showReportScreen(screen, "forward");
 }
 
 /* =========================================================
-   FORMAT DATES
+   READ-ONLY REPORT DETAILS
 ========================================================= */
 
-function formatReportTimeline(value) {
-    if (!value) return "";
+function setDetailImages(root, images) {
+    const link = root.querySelector("#detailImageLink");
+    const image = root.querySelector("#detailImage");
+    const empty = root.querySelector("#detailImageEmpty");
+    const thumbs = root.querySelector("#detailImageThumbs");
 
-    const date = new Date(value.replace(" ", "T"));
+    if (!link || !image || !empty || !thumbs) return;
 
-    if (Number.isNaN(date.getTime())) {
-        return value;
+    thumbs.replaceChildren();
+
+    if (!images.length) {
+        link.hidden = true;
+        empty.hidden = false;
+        image.removeAttribute("src");
+        return;
     }
 
-    return date.toLocaleString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true
-    });
+    function select(index) {
+        image.src = images[index];
+        link.href = images[index];
+
+        thumbs.querySelectorAll("button").forEach((button, i) => {
+            button.classList.toggle("active", i === index);
+        });
+    }
+
+    link.hidden = false;
+    empty.hidden = true;
+
+    image.onerror = function () {
+        link.hidden = true;
+        empty.hidden = false;
+        empty.querySelector("span").textContent = "The photo could not be loaded";
+    };
+
+    if (images.length > 1) {
+        images.forEach((src, index) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.setAttribute("aria-label", "Show photo " + (index + 1));
+
+            const thumb = document.createElement("img");
+            thumb.src = src;
+            thumb.alt = "";
+            thumb.loading = "lazy";
+
+            button.appendChild(thumb);
+            button.addEventListener("click", () => select(index));
+            thumbs.appendChild(button);
+        });
+    }
+
+    select(0);
 }
 
-
-/* =========================================================
-   READ-ONLY INDIVIDUAL REPORT DETAILS
-========================================================= */
-
 function openReadOnlyReport(card) {
-
     const root = getReportRoot();
     if (!root) return;
 
-    const detailScreen = root.querySelector(
-        "#individualReportScreen"
-    );
-
+    const detailScreen = root.querySelector("#individualReportScreen");
     if (!detailScreen) return;
 
     detailReturnScreen = Array.from(
-        root.querySelectorAll(
-            "#reportGroupScreen, .manage-category-screen"
-        )
+        root.querySelectorAll("#reportGroupScreen, .manage-category-screen")
     ).find(screen => !screen.hidden) || null;
 
+    const data = card.dataset;
+
     const fields = {
-        detailCategory: card.dataset.category,
-        detailResident: card.dataset.resident,
-        detailEmail: card.dataset.email,
-        detailContact: card.dataset.contact,
-        detailReportID: card.dataset.reportId,
-        detailLocation: card.dataset.location,
-        detailDescription: card.dataset.description,
-        detailDate: formatReportTimeline(card.dataset.date),
-        detailStatus: card.dataset.statusName
+        detailCategory: data.category,
+        detailResident: data.resident,
+        detailEmail: data.email,
+        detailContact: data.contact,
+        detailReportID: data.reportId,
+        detailLocation: data.location,
+        detailDescription: data.description,
+        detailDate: formatReportTimeline(data.date),
+        detailTitle: (data.title || "").trim() || (data.category + " report")
     };
 
     Object.entries(fields).forEach(([id, value]) => {
-
         const element = root.querySelector("#" + id);
-
-        if (element) {
-            element.textContent = value || "Not provided";
-        }
+        if (element) element.textContent = value || "Not provided";
     });
 
-    /* REPORT TIMELINE */
+    const initial = root.querySelector("#detailResidentInitial");
+    if (initial) initial.textContent = (data.resident || "R").trim().charAt(0).toUpperCase();
 
-    const timelineContainer = root.querySelector(
-        "#detailTimelineContainer"
-    );
+    /* Status pill (reuse the card's pill so Overdue labels match) */
+    const status = root.querySelector("#detailStatus");
+    if (status) {
+        const cardPill = card.querySelector(".pill");
+        status.replaceChildren(
+            cardPill
+                ? cardPill.cloneNode(true)
+                : Object.assign(document.createElement("span"), {
+                    className: "pill pill-" + statusClass(data.statusName),
+                    textContent: data.statusName || ""
+                })
+        );
+    }
 
-    const timelineText = root.querySelector(
-        "#detailTimeline"
-    );
+    /* Timeline */
+    const timelineContainer = root.querySelector("#detailTimelineContainer");
+    const timelineText = root.querySelector("#detailTimeline");
 
     if (timelineContainer && timelineText) {
-
-        const timeline = card.dataset.timeline || "";
-
-        timelineText.textContent =
-            formatReportTimeline(timeline);
-
-        timelineContainer.hidden = !timeline;
+        timelineText.textContent = formatReportTimeline(data.timeline || "");
+        timelineContainer.hidden = !data.timeline;
     }
 
-    /* REPORT IMAGE */
-
-    const imageContainer = root.querySelector(
-        "#detailImageContainer"
-    );
-
-    const image = root.querySelector("#detailImage");
-
-    if (imageContainer && image) {
-
-        if (card.dataset.image) {
-
-            image.src = card.dataset.image;
-            imageContainer.hidden = false;
-
-        } else {
-
-            image.removeAttribute("src");
-            imageContainer.hidden = true;
-        }
+    /* Photos */
+    let images = [];
+    try {
+        images = JSON.parse(data.images || "[]");
+    } catch {
+        images = data.image ? [data.image] : [];
     }
+    setDetailImages(root, Array.isArray(images) ? images.filter(Boolean) : []);
 
-    /* ==========================================
-       STATUS HISTORY VISIBILITY
-    ========================================== */
+    /* Status history (hidden for Pending) */
+    const isPending = data.statusId === "STAT001";
+    const historyPanel = root.querySelector("#detailStatusHistoryPanel");
+    const historyTarget = root.querySelector("#detailStatusHistory");
 
-    const isPending =
-        card.dataset.statusId === "STAT001";
-
-    const historyPanel = root.querySelector(
-        "#detailStatusHistoryPanel"
-    );
-
-    const historyTarget = root.querySelector(
-        "#detailStatusHistory"
-    );
-
-    if (historyPanel) {
-
-        historyPanel.hidden = isPending;
-
-        historyPanel.style.display =
-            isPending ? "none" : "";
-    }
+    if (historyPanel) historyPanel.hidden = isPending;
 
     if (historyTarget) {
-
         historyTarget.replaceChildren();
 
         if (!isPending) {
+            const template = Array.from(root.querySelectorAll("[data-history-report-id]"))
+                .find(node => node.dataset.historyReportId === data.reportId);
 
-            const historyTemplate = Array.from(
-                root.querySelectorAll(
-                    "[data-history-report-id]"
-                )
-            ).find(node =>
-                node.dataset.historyReportId ===
-                card.dataset.reportId
-            );
-
-            if (historyTemplate) {
-
+            if (template && template.children.length) {
                 historyTarget.append(
-                    ...Array.from(
-                        historyTemplate.childNodes
-                    ).map(node =>
-                        node.cloneNode(true)
-                    )
+                    ...Array.from(template.childNodes).map(node => node.cloneNode(true))
                 );
-
             } else {
-
-                historyTarget.textContent =
-                    "No status history recorded for this report.";
+                historyTarget.textContent = "No status history recorded for this report.";
             }
         }
     }
 
-    showReportScreen(detailScreen);
+    showReportScreen(detailScreen, "forward");
 }
 
-
 /* =========================================================
-   REPORT DRAWER CLICK HANDLERS
+   DRAWER CLICK HANDLERS
 ========================================================= */
 
-document.addEventListener("click", function (event) {
+function handleCardActivation(card) {
+    const variant = card.dataset.variant;
 
+    if (variant === "summary") return;
+
+    if (variant === "original") {
+        showManageOriginal(card.dataset.reportId);
+    } else {
+        openReadOnlyReport(card);
+    }
+}
+
+document.addEventListener("click", function (event) {
     const target = event.target;
 
-    const root = target.closest(
-        ".report-view-content"
-    );
+    if (!(target instanceof Element)) return;
 
+    /* Close buttons work in every state, including error states */
+    if (target.closest("[data-close-report-view], #closeReportView")) {
+        closeReportDrawer();
+        return;
+    }
+
+    const root = target.closest(".report-view-content");
     if (!root) return;
 
-    /* MANAGE REPORTS BUTTON */
-
     if (target.closest("#manageGroupReports")) {
-
         const categoryID = root.dataset.categoryId;
-
-        if (categoryID) {
-            showManageCategory(categoryID);
-        }
-
+        if (categoryID) showManageCategory(categoryID);
         return;
     }
 
-    /* CATEGORY BUTTON */
-
-    const categoryButton = target.closest(
-        "[data-manage-category]"
-    );
-
+    const categoryButton = target.closest("[data-manage-category]");
     if (categoryButton) {
-
-        showManageCategory(
-            categoryButton.dataset.manageCategory
-        );
-
+        showManageCategory(categoryButton.dataset.manageCategory);
         return;
     }
 
-    /* BACK BUTTONS */
-
-    const backButton = target.closest(
-        "[data-manage-back]"
-    );
-
+    const backButton = target.closest("[data-manage-back]");
     if (backButton) {
-
-        const destination =
-            backButton.dataset.manageBack;
+        const destination = backButton.dataset.manageBack;
 
         if (destination === "group") {
-
             showGroupScreen();
-
         } else if (destination === "categories") {
-
             showManageCategories();
-
         } else if (destination === "category") {
-
-            showManageCategory(
-                backButton.dataset.categoryId
-            );
+            showManageCategory(backButton.dataset.categoryId, "back");
         }
-
         return;
     }
-
-    /* RETURN FROM REPORT DETAILS */
 
     if (target.closest("#backToReportList")) {
-
         if (detailReturnScreen) {
-
-            showReportScreen(detailReturnScreen);
-
+            showReportScreen(detailReturnScreen, "back");
         } else {
-
             showGroupScreen();
         }
-
         return;
     }
 
-    /* REPORT CARD CLICK */
+    /* Don't treat clicks on links/inputs inside a card as card clicks */
+    if (target.closest("a, input, select, textarea, summary")) return;
 
-    const card = target.closest(
-        ".duplicate-report-card"
-    );
-
-    if (card) {
-
-        if (
-            card.dataset.manage === "1" &&
-            card.dataset.original === "0"
-        ) {
-            return;
-        }
-
-        if (
-            card.dataset.manage === "1" &&
-            card.dataset.original === "1"
-        ) {
-
-            showManageOriginal(card.dataset.reportId);
-
-        } else {
-
-            openReadOnlyReport(card);
-        }
-
-        return;
-    }
-
-    /* CLOSE REPORT DRAWER */
-
-    if (
-        target.closest(
-            "[data-close-report-view], #closeReportView"
-        )
-    ) {
-        closeReportDrawer();
-    }
+    const card = target.closest(".duplicate-report-card");
+    if (card) handleCardActivation(card);
 });
 
 /* =========================================================
@@ -1950,75 +1530,49 @@ document.addEventListener("click", function (event) {
 
 document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
-        closeReportDrawer();
+        if (!generateReportModal.hidden || !exportModal.hidden) {
+            closeModal(generateReportModal);
+            closeModal(exportModal);
+        } else if (reportDrawer.classList.contains("open")) {
+            closeReportDrawer();
+        }
         hideReportToast();
-
-        const exportModal = document.getElementById("exportModal");
-
-        if (exportModal) {
-            exportModal.hidden = true;
-        }
-
-        if (generateReportModal) {
-            generateReportModal.hidden = true;
-        }
-
         return;
     }
 
     if (event.key !== "Enter" && event.key !== " ") return;
 
     const target = event.target;
-
     if (!(target instanceof Element)) return;
 
-    const card = target.closest(".duplicate-report-card");
-
-    if (!card) return;
-
-    if (
-        card.dataset.manage === "1" &&
-        card.dataset.original === "0"
-    ) {
-        return;
-    }
+    if (!target.matches(".duplicate-report-card[role='button']")) return;
 
     event.preventDefault();
-    card.click();
+    handleCardActivation(target);
 });
 
 /* =========================================================
-   REFRESH ORIGINAL REPORT MANAGEMENT SCREEN
+   REFRESH AFTER SAVING
 ========================================================= */
 
 async function refreshManageOriginal(reportID) {
     const categoryID = activeManageCategoryID;
-    const currentCategory = currentCategoryID;
-    const currentLocation = currentLocationID;
 
-    const loaded = await loadReportDrawer(
-        currentCategory,
-        currentLocation
-    );
-
+    const loaded = await loadReportDrawer(currentCategoryID, currentLocationID, true);
     if (!loaded) return;
 
-    if (categoryID) {
-        showManageCategory(categoryID);
-    }
+    const root = getReportRoot();
+    if (!root) return;
 
-    if (reportID) {
-        const root = getReportRoot();
+    const originalScreen = reportID && Array.from(root.querySelectorAll(".manage-original-screen"))
+        .find(screen => screen.dataset.originalScreen === reportID);
 
-        if (!root) return;
-
-        const originalScreen = Array.from(
-            root.querySelectorAll(".manage-original-screen")
-        ).find(screen => screen.dataset.originalScreen === reportID);
-
-        if (originalScreen) {
-            showManageOriginal(reportID);
-        }
+    if (originalScreen) {
+        showManageOriginal(reportID);
+    } else if (categoryID) {
+        showManageCategory(categoryID, "back");
+    } else {
+        showGroupScreen(false);
     }
 }
 
@@ -2026,38 +1580,48 @@ async function refreshManageOriginal(reportID) {
    UPDATE ORIGINAL REPORT STATUS
 ========================================================= */
 
+function setButtonBusy(button, busy, busyText) {
+    if (!button) return;
+
+    if (busy) {
+        button.dataset.label = button.innerHTML;
+        button.innerHTML = `<span class="btn-spinner"></span> ${busyText}`;
+        button.disabled = true;
+    } else {
+        if (button.dataset.label) button.innerHTML = button.dataset.label;
+        button.disabled = false;
+    }
+}
+
 document.addEventListener("click", async function (event) {
     const target = event.target;
-
     if (!(target instanceof Element)) return;
 
     const button = target.closest("[data-save-original-status]");
-
     if (!button || button.disabled) return;
 
     const reportID = button.dataset.saveOriginalStatus;
     const screen = button.closest(".manage-original-screen");
-
     if (!screen) return;
 
     const statusSelect = screen.querySelector(".manage-status-select");
+    const remarksInput = screen.querySelector(".manage-remarks-input");
 
     if (!statusSelect || !reportID || !statusSelect.value) {
         showReportToast("Please select a valid status.", true);
         return;
     }
 
-    button.disabled = true;
+    setButtonBusy(button, true, "Updating…");
 
     try {
         const response = await fetch("update_report_status.php", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 reportID: reportID,
-                statusID: statusSelect.value
+                statusID: statusSelect.value,
+                remarks: remarksInput ? remarksInput.value.trim() : ""
             })
         });
 
@@ -2066,44 +1630,39 @@ document.addEventListener("click", async function (event) {
         try {
             data = await response.json();
         } catch {
-            throw new Error(
-                "The server returned an invalid response while updating the status."
-            );
+            throw new Error("The server returned an invalid response while updating the status.");
         }
 
         if (!response.ok || !data.success) {
-            throw new Error(
-                data.message || "Unable to update report status."
-            );
+            throw new Error(data.message || "Unable to update report status.");
         }
 
-        const loaded = await loadReportDrawer(
-            currentCategoryID,
-            currentLocationID
-        );
+        const categoryID = activeManageCategoryID;
+        const loaded = await loadReportDrawer(currentCategoryID, currentLocationID, true);
 
         if (!loaded) {
-            showReportToast(
-                "Status updated, but the drawer could not refresh. Reopen the report to see the latest data.",
-                true
-            );
+            showReportToast("Status updated, but the drawer could not refresh. Reopen it to see the latest data.", true);
             return;
         }
 
-        showGroupScreen();
+        /* Stay where the admin was working */
+        const root = getReportRoot();
+        const stillActive = root && Array.from(root.querySelectorAll(".manage-original-screen"))
+            .some(item => item.dataset.originalScreen === reportID);
 
-        showReportToast(
-            data.message || "Report status updated successfully."
-        );
+        if (stillActive) {
+            showManageOriginal(reportID);
+        } else if (categoryID) {
+            showManageCategory(categoryID, "back");
+        } else {
+            showGroupScreen();
+        }
+
+        showReportToast(data.message || "Report status updated successfully.");
 
     } catch (error) {
-        showReportToast(
-            error.message || "Unable to update report status.",
-            true
-        );
-
-    } finally {
-        button.disabled = false;
+        showReportToast(error.message || "Unable to update report status.", true);
+        setButtonBusy(button, false);
     }
 });
 
@@ -2113,37 +1672,25 @@ document.addEventListener("click", async function (event) {
 
 document.addEventListener("submit", async function (event) {
     const target = event.target;
-
     if (!(target instanceof Element)) return;
 
     const form = target.closest(".manage-timeline-form");
-
     if (!form) return;
 
     event.preventDefault();
 
     const reportID = form.dataset.reportId;
-
-    const timelineInput = form.querySelector(
-        'input[name="timeline"]'
-    );
-
+    const timelineInput = form.querySelector('input[name="timeline"]');
     const timeline = timelineInput?.value || "";
-
     const button = form.querySelector('button[type="submit"]');
 
-    if (button) button.disabled = true;
+    setButtonBusy(button, true, "Saving…");
 
     try {
         const response = await fetch("update_report_timeline.php", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                reportID: reportID,
-                timeline: timeline
-            })
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reportID: reportID, timeline: timeline })
         });
 
         let data;
@@ -2151,171 +1698,122 @@ document.addEventListener("submit", async function (event) {
         try {
             data = await response.json();
         } catch {
-            throw new Error(
-                "The server returned an invalid response while saving the timeline."
-            );
+            throw new Error("The server returned an invalid response while saving the timeline.");
         }
 
         if (!response.ok || !data.success) {
-            throw new Error(
-                data.message || "Unable to save timeline."
-            );
+            throw new Error(data.message || "Unable to save timeline.");
         }
 
         await refreshManageOriginal(reportID);
-
-        showReportToast(
-            data.message || "Report timeline saved successfully."
-        );
+        showReportToast(data.message || "Report timeline saved successfully.");
 
     } catch (error) {
-        showReportToast(
-            error.message || "Unable to save timeline.",
-            true
-        );
-
-    } finally {
-        if (button) button.disabled = false;
+        showReportToast(error.message || "Unable to save timeline.", true);
+        setButtonBusy(button, false);
     }
 });
 
 /* =========================================================
-   EXPORT MODAL
+   MODALS: GENERATE REPORT -> EXPORT FORMAT
 ========================================================= */
 
 const exportModal = document.getElementById("exportModal");
-const openExportModal = document.getElementById("openExportModal");
-const closeExportModal = document.getElementById("closeExportModal");
+const generateReportModal = document.getElementById("generateReportModal");
+const generateReportButton = document.getElementById("generateReportButton");
+const generateReportForm = document.getElementById("generateReportForm");
 
-openExportModal?.addEventListener("click", function () {
-    exportModal.hidden = false;
-});
+function openModal(modal) {
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
 
-closeExportModal?.addEventListener("click", function () {
-    exportModal.hidden = true;
-});
-
-exportModal?.addEventListener("click", function (event) {
-    if (event.target === exportModal) {
-        exportModal.hidden = true;
-    }
-});
-
-/* =========================================================
-   GENERATE REPORT MODAL
-========================================================= */
-
-const generateReportModal =
-    document.getElementById("generateReportModal");
-
-const generateReportButton =
-    document.getElementById("generateReportButton");
-
-const closeGenerateReportModal =
-    document.getElementById("closeGenerateReportModal");
-
-generateReportButton?.addEventListener("click", function () {
-    if (generateReportModal) {
-        generateReportModal.hidden = false;
-    }
-});
-
-closeGenerateReportModal?.addEventListener("click", function () {
-    if (generateReportModal) {
-        generateReportModal.hidden = true;
-    }
-});
-
-generateReportModal?.addEventListener("click", function (event) {
-    if (event.target === generateReportModal) {
-        generateReportModal.hidden = true;
-    }
-});
-
-/* =========================================================
-   STATUS HISTORY HELPER
-========================================================= */
-
-function loadReportStatusHistory(reportID) {
-    const historyContainer = document.getElementById(
-        "detailStatusHistory"
-    );
-
-    const historyTemplates = document.getElementById(
-        "reportHistoryTemplates"
-    );
-
-    if (!historyContainer || !historyTemplates) {
-        console.error(
-            "Status history container or templates not found."
-        );
-        return;
-    }
-
-    const reportIDString = String(reportID);
-
-    const matchingTemplate = Array.from(
-        historyTemplates.querySelectorAll("[data-history-report-id]")
-    ).find(template =>
-        template.dataset.historyReportId === reportIDString
-    );
-
-    historyContainer.replaceChildren();
-
-    if (!matchingTemplate) {
-        historyContainer.textContent =
-            "No status history is available for this report.";
-        return;
-    }
-
-    historyContainer.appendChild(matchingTemplate.cloneNode(true));
+    const focusTarget = modal.querySelector("input:checked, .export-option, button");
+    if (focusTarget) setTimeout(() => focusTarget.focus(), 50);
 }
 
+function closeModal(modal) {
+    if (!modal || modal.hidden) return;
 
-const generateReportForm =
-    document.getElementById("generateReportForm");
+    modal.classList.add("is-closing");
 
-const reportPeriodSelect =
-    document.getElementById("reportPeriod");
+    setTimeout(() => {
+        modal.hidden = true;
+        modal.classList.remove("is-closing");
 
-const exportReportModal =
-    document.getElementById("exportModal");
+        if (generateReportModal.hidden && exportModal.hidden) {
+            document.body.classList.remove("modal-open");
+        }
+    }, 180);
+}
+
+generateReportButton?.addEventListener("click", () => openModal(generateReportModal));
+
+document.getElementById("closeGenerateReportModal")?.addEventListener("click", () => closeModal(generateReportModal));
+document.getElementById("closeExportModal")?.addEventListener("click", () => closeModal(exportModal));
+
+document.getElementById("exportBackButton")?.addEventListener("click", function () {
+    exportModal.hidden = true;
+    openModal(generateReportModal);
+});
+
+[generateReportModal, exportModal].forEach(modal => {
+    modal?.addEventListener("click", function (event) {
+        if (event.target === modal) closeModal(modal);
+    });
+});
 
 generateReportForm?.addEventListener("submit", function (event) {
     event.preventDefault();
 
-    const selectedPeriod = reportPeriodSelect.value;
+    const selected = generateReportForm.querySelector('input[name="period"]:checked');
+    if (!selected) return;
 
-    if (!selectedPeriod) {
-        reportPeriodSelect.focus();
-        return;
-    }
+    const period = selected.value;
+    const periodLabel = selected.closest(".period-option")?.querySelector("strong")?.textContent || "";
 
-    // Pass the selected reporting period to all export links.
-    const exportLinks = exportReportModal.querySelectorAll(
-        ".export-modal-options a"
-    );
-
-    exportLinks.forEach(function (link) {
+    exportModal.querySelectorAll(".export-modal-options a").forEach(function (link) {
         const format = link.getAttribute("href").match(/format=([^&]+)/);
 
         if (format) {
-            link.href =
-                "export_reports.php?format=" +
-                format[1] +
-                "&period=" +
-                encodeURIComponent(selectedPeriod);
+            link.href = "export_reports.php?format=" + format[1] + "&period=" + encodeURIComponent(period);
         }
     });
 
-    // Close Generate Report modal.
-    generateReportModal.hidden = true;
+    const label = document.getElementById("exportPeriodLabel");
+    if (label) label.textContent = "Period: " + periodLabel + ". Choose how you want to download it.";
 
-    // Open Export Reports modal.
-    exportReportModal.hidden = false;
+    generateReportModal.hidden = true;
+    openModal(exportModal);
 });
 
+exportModal?.querySelectorAll(".export-option").forEach(link => {
+    link.addEventListener("click", () => {
+        showReportToast("Preparing your download…");
+        setTimeout(() => closeModal(exportModal), 300);
+    });
+});
 
+/* =========================================================
+   DEEP LINK FROM NOTIFICATIONS: reports.php?open=CAT&report=ID
+========================================================= */
+
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    const openCategory = params.get("open");
+
+    if (!openCategory) return;
+
+    const reportID = params.get("report") || "";
+
+    params.delete("open");
+    params.delete("report");
+
+    const clean = window.location.pathname + (params.toString() ? "?" + params.toString() : "");
+    window.history.replaceState({}, document.title, clean);
+
+    openCategoryDrawer(openCategory, reportID);
+})();
 </script>
 
 </body>

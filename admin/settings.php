@@ -424,6 +424,7 @@ $dateJoined = !empty($admin["dateJoined"])
     <link rel="stylesheet" href="../css/dashboard.css">
 
     <link rel="stylesheet" href="../css/settings.css">
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 <body>

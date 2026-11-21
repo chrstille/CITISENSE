@@ -306,6 +306,9 @@ $unreadNotifications =
         rel="stylesheet"
         href="../css/dashboard.css"
     >
+
+    <link rel="stylesheet" href="../css/dashboard-v2.css?v=2">
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 
@@ -317,415 +320,173 @@ $unreadNotifications =
          MAIN CONTENT
     =========================================== -->
 
-    <main class="main-content">
+    <?php
+    $hour = (int) date("G");
+    $greeting = $hour < 12 ? "Good morning" : ($hour < 18 ? "Good afternoon" : "Good evening");
 
+    $adminFirstName = trim(explode(" ", (string) ($_SESSION["admin_name"] ?? "Admin"))[0]);
+    if ($adminFirstName === "") {
+        $adminFirstName = "Admin";
+    }
+
+    $statCards = [
+        ["Total Reports", $totalReports, "bi-file-earmark-text", "total", "All reports in your barangay"],
+        ["Pending", $pendingReports, "bi-hourglass-split", "pending", "Waiting for review"],
+        ["In Progress", $inProgressReports, "bi-arrow-repeat", "progress", "Being worked on"],
+        ["Resolved", $resolvedReports, "bi-check2-circle", "resolved", "Completed reports"],
+    ];
+
+    function dashCategoryIcon(string $name): string
+    {
+        $name = strtolower($name);
+        if (str_contains($name, "waste") || str_contains($name, "garbage")) return "bi-trash3";
+        if (str_contains($name, "pothole") || str_contains($name, "road")) return "bi-cone-striped";
+        if (str_contains($name, "drain") || str_contains($name, "flood")) return "bi-water";
+        return "bi-three-dots";
+    }
+
+    $categoryTotal = array_sum(array_map(static fn($c) => (int) $c["reportCount"], $categories));
+    ?>
+
+    <main class="main-content dash">
 
         <!-- HEADER -->
+        <header class="page-header">
 
-        <header class="dashboard-header">
-
-
-            <div class="welcome-section">
-
-                <h1>
-                    Welcome Back, Admin!
-                </h1>
-
-
+            <div>
+                <h1><?= htmlspecialchars($greeting . ", " . $adminFirstName) ?> 👋</h1>
                 <p>
-
                     Here's what's happening in
-
-                    <strong>
-
-                        <?php
-
-                        echo htmlspecialchars(
-                            $barangayName
-                        );
-
-                        ?>
-
-                    </strong>
-
+                    <strong><?= htmlspecialchars($barangayName) ?></strong>
                     today.
-
                 </p>
+            </div>
 
+            <div class="page-header-actions">
+                <span class="dash-date">
+                    <i class="bi bi-calendar3"></i>
+                    <?= date("l, F j, Y") ?>
+                </span>
+
+                <?php include __DIR__ . "/partial/notification_bell.php"; ?>
             </div>
 
         </header>
 
+        <!-- STATISTICS -->
+        <section class="dash-stats" aria-label="Report statistics">
 
-        <!-- DATE -->
-
-        <div class="date-box">
-
-            <i class="bi bi-calendar3"></i>
-
-            <span>
+            <?php foreach ($statCards as [$label, $value, $icon, $tone, $hint]): ?>
 
                 <?php
-                echo date("F j, Y");
+                $share = ($tone !== "total" && $totalReports > 0)
+                    ? round($value / $totalReports * 100)
+                    : null;
                 ?>
 
-            </span>
-
-        </div>
-
-
-        <!-- ==========================================
-             REPORT STATISTICS
-        =========================================== -->
-
-        <section class="statistics-section">
-
-
-            <h3>
-                Report Statistics
-            </h3>
-
-
-            <div class="statistics-grid">
-
-
-                <!-- TOTAL REPORTS -->
-
-                <div class="stat-card">
-
-                    <div class="stat-icon purple">
-
-                        <i
-                            class="bi bi-file-earmark-text"
-                        ></i>
-
+                <article class="dash-stat dash-stat-<?= $tone ?>">
+                    <div class="dash-stat-top">
+                        <span class="dash-stat-label"><?= $label ?></span>
+                        <span class="dash-stat-icon"><i class="bi <?= $icon ?>"></i></span>
                     </div>
 
+                    <strong class="dash-stat-value"><?= number_format($value) ?></strong>
 
-                    <div class="stat-info">
+                    <span class="dash-stat-hint">
+                        <?php if ($share !== null): ?>
+                            <b><?= $share ?>%</b> of all reports
+                        <?php else: ?>
+                            <?= $hint ?>
+                        <?php endif; ?>
+                    </span>
+                </article>
 
-                        <h2>
-                            <?php
-                            echo $totalReports;
-                            ?>
-                        </h2>
-
-                        <p>
-                            Total Reports
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                <!-- PENDING -->
-
-                <div class="stat-card">
-
-                    <div class="stat-icon orange">
-
-                        <i class="bi bi-clock"></i>
-
-                    </div>
-
-
-                    <div class="stat-info">
-
-                        <h2>
-                            <?php
-                            echo $pendingReports;
-                            ?>
-                        </h2>
-
-                        <p>
-                            Pending
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                <!-- IN PROGRESS -->
-
-                <div class="stat-card">
-
-                    <div class="stat-icon blue">
-
-                        <i class="bi bi-circle"></i>
-
-                    </div>
-
-
-                    <div class="stat-info">
-
-                        <h2>
-                            <?php
-                            echo $inProgressReports;
-                            ?>
-                        </h2>
-
-                        <p>
-                            In Progress
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                <!-- RESOLVED -->
-
-                <div class="stat-card">
-
-                    <div class="stat-icon green">
-
-                        <i
-                            class="bi bi-check-circle-fill"
-                        ></i>
-
-                    </div>
-
-
-                    <div class="stat-info">
-
-                        <h2>
-                            <?php
-                            echo $resolvedReports;
-                            ?>
-                        </h2>
-
-                        <p>
-                            Resolved
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-            </div>
+            <?php endforeach; ?>
 
         </section>
 
+        <!-- CATEGORIES + HEATMAP -->
+        <section class="dash-grid">
 
-        <!-- ==========================================
-             REPORTS BY CATEGORY + HEATMAP
-        =========================================== -->
+            <div class="dash-card">
 
-        <section class="dashboard-lower-grid">
+                <header class="dash-card-header">
+                    <div>
+                        <h3>Reports by Category</h3>
+                    </div>
+                    <a href="reports.php" class="dash-card-link">View reports <i class="bi bi-arrow-right"></i></a>
+                </header>
 
+                <?php if (count($categories) > 0): ?>
 
-            <!-- ======================================
-                 REPORTS BY CATEGORY
-            ======================================= -->
+                    <div class="dash-categories">
 
-            <div class="dashboard-card categories-card">
-
-
-                <div class="card-header">
-
-                    <h3>
-                        Reports by Category
-                    </h3>
-
-                </div>
-
-
-                <div class="category-grid">
-
-
-                    <?php if (
-                        count($categories) > 0
-                    ): ?>
-
-
-                        <?php foreach (
-                            $categories
-                            as $category
-                        ): ?>
-
+                        <?php foreach ($categories as $category): ?>
 
                             <?php
-
-                            $categoryName =
-                                $category["categoryName"];
-
-                            $reportCount =
-                                (int)
-                                $category["reportCount"];
-
-
-                            if (
-                                $totalReports > 0
-                            ) {
-
-                                $percentage =
-                                    round(
-                                        (
-                                            $reportCount
-                                            /
-                                            $totalReports
-                                        ) * 100
-                                    );
-
-                            } else {
-
-                                $percentage = 0;
-
-                            }
-
+                            $reportCount = (int) $category["reportCount"];
+                            $percentage = $categoryTotal > 0
+                                ? round($reportCount / $categoryTotal * 100)
+                                : 0;
                             ?>
 
-
-                            <div class="category-item">
-
-
-                                <div
-                                    class="category-icon blue"
-                                >
-
-                                    <i
-                                        class="bi bi-tag"
-                                    ></i>
-
-                                </div>
-
-
-                                <h2>
-
-                                    <?php
-                                    echo $reportCount;
-                                    ?>
-
-                                </h2>
-
-
-                                <p>
-
-                                    <?php
-
-                                    echo htmlspecialchars(
-                                        $categoryName
-                                    );
-
-                                    ?>
-
-                                </p>
-
-
-                                <span>
-
-                                    <?php
-                                    echo $percentage;
-                                    ?>%
-
+                            <a
+                                class="dash-category"
+                                href="reportStatusOverview.php?categoryID=<?= urlencode((string) $category["categoryID"]) ?>"
+                            >
+                                <span class="dash-category-icon">
+                                    <i class="bi <?= dashCategoryIcon((string) $category["categoryName"]) ?>"></i>
                                 </span>
 
+                                <span class="dash-category-body">
+                                    <span class="dash-category-row">
+                                        <strong><?= htmlspecialchars($category["categoryName"]) ?></strong>
+                                        <span><?= $reportCount ?> <small>· <?= $percentage ?>%</small></span>
+                                    </span>
 
-                                <div class="progress">
-
-                                    <div
-                                        class="progress-bar blue-bar"
-                                        style="
-                                            width:
-                                            <?php
-                                            echo $percentage;
-                                            ?>%;">
-                                    </div>
-                        
-                                </div>
-
-
-                            </div>
-
+                                    <span class="dash-progress">
+                                        <span style="width: <?= $percentage ?>%"></span>
+                                    </span>
+                                </span>
+                            </a>
 
                         <?php endforeach; ?>
 
-
-                    <?php else: ?>
-
-
-                        <div class="no-data">
-
-                            <i
-                                class="bi bi-inbox"
-                            ></i>
-
-                            <p>
-                                No categories available.
-                            </p>
-
-                        </div>
-
-
-                    <?php endif; ?>
-
-
-                </div>
-
-            </div>
-
-
-            <!-- ======================================
-                 REPORT HEATMAP
-            ======================================= -->
-
-            <div class="dashboard-card heatmap-card">
-
-
-                <div class="card-header">
-
-                    <h3>
-                        Report Heatmap
-                    </h3>
-
-                </div>
-
-
-                <div class="heatmap-container">
-
-
-                    <div
-                        id="reportHeatmap"
-                    ></div>
-
-
-                    <!-- LEGEND -->
-
-                    <div class="heatmap-legend">
-
-                        <span>
-                            Low
-                        </span>
-
-
-                        <div
-                            class="legend-gradient"
-                        ></div>
-
-
-                        <span>
-                            High
-                        </span>
-
                     </div>
 
-                </div>
+                <?php else: ?>
 
+                    <div class="dash-empty">
+                        <i class="bi bi-inbox"></i>
+                        <p>No categories available.</p>
+                    </div>
+
+                <?php endif; ?>
 
             </div>
 
+            <div class="dash-card dash-map-card">
+
+                <header class="dash-card-header">
+                    <div>
+                        <h3>Report Heatmap</h3>
+                    </div>
+                    <a href="heatmap.php" class="dash-card-link">Full map <i class="bi bi-arrows-angle-expand"></i></a>
+                </header>
+
+                <div class="dash-map">
+                    <div id="reportHeatmap"></div>
+
+                    <div class="dash-map-legend">
+                        <span>Low</span>
+                        <div class="legend-gradient"></div>
+                        <span>High</span>
+                    </div>
+                </div>
+
+            </div>
 
         </section>
-
-
-        <!-- ==========================================
-             FOOTER
-        =========================================== -->
-
-
 
     </main>
 
@@ -769,43 +530,23 @@ const heatmapReports =
 
 
 // ==========================================
-// CREATE MAP
+// DULJO-FATIMA MAP - APPROXIMATE LOCAL VIEW
 // ==========================================
+// These bounds constrain navigation; they are not official
+// barangay boundary coordinates.
+const duljoCenter = [10.29234, 123.89350];
+const duljoBounds = L.latLngBounds(
+    [10.2840, 123.8800],
+    [10.3010, 123.9080]
+);
 
-let mapCenter = [
-    10.2923404,
-    123.8890404
-];
-
-
-// If reports exist,
-// center the map on the first report.
-
-if (
-    heatmapReports.length > 0
-) {
-
-    mapCenter = [
-
-        heatmapReports[0].latitude,
-
-        heatmapReports[0].longitude
-
-    ];
-
-}
-
-
-const map =
-    L.map(
-        "reportHeatmap",
-        {
-            zoomControl: true
-        }
-    ).setView(
-        mapCenter,
-        15
-    );
+const map = L.map("reportHeatmap", {
+    zoomControl: true,
+    minZoom: 16,
+    maxZoom: 19,
+    maxBounds: duljoBounds,
+    maxBoundsViscosity: 1.0
+}).setView(duljoCenter, 17);
 
 
 // ==========================================
@@ -842,8 +583,11 @@ heatmapReports.forEach(report => {
 
     if (
         !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude)
+        !Number.isFinite(longitude) ||
+        !duljoBounds.contains([latitude, longitude])
     ) {
+        // Invalid or distant GPS positions must not distort
+        // the local heatmap. Database records are unchanged.
         return;
     }
 
@@ -891,27 +635,27 @@ if (heatPoints.length > 0) {
     L.heatLayer(heatPoints, {
 
         // Larger spots for the smaller dashboard
-        radius: 50,
+        radius: 44,
 
-        // Stronger, more defined colors
-        blur: 20,
+        // Soft feathered edges to keep streets readable
+        blur: 30,
 
         // Preserve intensity at wider map zooms
-        maxZoom: 10,
+        maxZoom: 17,
 
         // Maximum represented concentration
         max: 4,
 
-        // Make the heat overlay more visible
-        minOpacity: 0.65,
+        // Reduce the minimum color opacity
+        minOpacity: 0.28,
 
-        // Same colors as heatmap.php
+        // Softened color palette matching heatmap.php
         gradient: {
-            0.00: "#00c853",
-            0.25: "#ffff00",
-            0.50: "#ff9800",
-            0.75: "#ff5722",
-            1.00: "#ff0000"
+            0.00: "#64cf98",  // Soft green - very low
+            0.25: "#c8e980",  // Soft lime - low
+            0.50: "#f8da80",  // Warm yellow - moderate
+            0.75: "#f4aa79",  // Muted orange - elevated
+            1.00: "#ec7f79"   // Soft coral - highest
         }
 
     }).addTo(map);
@@ -919,46 +663,22 @@ if (heatPoints.length > 0) {
 
 
 /* ==========================================
-   CORRECT MAP SIZE AND POSITION
+   KEEP THE MAP INSIDE THE DULJO-FATIMA VIEW
 ========================================== */
 
 setTimeout(() => {
-
     map.invalidateSize();
 
-    if (heatPoints.length > 1) {
-
-        const bounds = L.latLngBounds(
-            heatPoints.map(point => [
-                point[0],
-                point[1]
-            ])
-        );
-
-        map.fitBounds(bounds, {
-            padding: [30, 30],
-            maxZoom: 15
-        });
-
-    } else if (heatPoints.length === 1) {
-
-        map.setView(
-            [heatPoints[0][0], heatPoints[0][1]],
-            15
-        );
-    }
-
+    // Make sure the whole visible viewport fits within
+    // the approximate bounds, even on a wide display.
+    const localMinZoom = Math.max(
+        16,
+        map.getBoundsZoom(duljoBounds, true)
+    );
+    map.setMinZoom(localMinZoom);
+    map.setView(duljoCenter, Math.max(17, localMinZoom));
 }, 150);
 
-
-/* ==========================================
-   DEBUG HEATMAP DATA
-========================================== */
-
-console.log("Heatmap reports:", heatmapReports);
-console.log("Location groups:", locationGroups);
-console.log("Heatmap points:", heatPoints);
-console.log("Map zoom:", map.getZoom());
 
 </script>
 

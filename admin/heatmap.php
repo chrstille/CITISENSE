@@ -228,6 +228,7 @@ $reportsJSON = json_encode(
         href="../css/heatmap.css"
     >
 
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 
@@ -415,13 +416,23 @@ const reports = <?php echo $reportsJSON ?: "[]"; ?>;
 
 
 // ==========================================
-// CREATE MAP
+// DULJO-FATIMA MAP - APPROXIMATE LOCAL VIEW
 // ==========================================
-
-const map = L.map("heatmapMap").setView(
-    [0, 0],
-    2
+// This rectangular view is a navigation limit, not an
+// official geographic boundary for the barangay.
+const duljoCenter = [10.29234, 123.89350];
+const duljoBounds = L.latLngBounds(
+    [10.2840, 123.8800],
+    [10.3010, 123.9080]
 );
+
+const map = L.map("heatmapMap", {
+    zoomControl: true,
+    minZoom: 16,
+    maxZoom: 19,
+    maxBounds: duljoBounds,
+    maxBoundsViscosity: 1.0
+}).setView(duljoCenter, 17);
 
 
 // ==========================================
@@ -464,8 +475,11 @@ reports.forEach(function (report) {
 
     if (
         !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude)
+        !Number.isFinite(longitude) ||
+        !duljoBounds.contains([latitude, longitude])
     ) {
+        // Ignore out-of-area GPS points on the map only.
+        // Do not change underlying database report records.
         return;
     }
 
@@ -580,29 +594,20 @@ L.heatLayer(
 
 
 // ==========================================
-// FIT MAP TO REPORT LOCATIONS
+// ALWAYS START WITH THE DULJO-FATIMA VIEW
 // ==========================================
+// Do not call fitBounds(heatPoints); one bad coordinate
+// would otherwise zoom the map out toward another island.
+setTimeout(() => {
+    map.invalidateSize();
 
-if (heatPoints.length > 0) {
-
-    const bounds = L.latLngBounds(
-
-        heatPoints.map(function (point) {
-
-            return [
-                point[0],
-                point[1]
-            ];
-
-        })
-
+    const localMinZoom = Math.max(
+        16,
+        map.getBoundsZoom(duljoBounds, true)
     );
-
-    map.fitBounds(
-        bounds.pad(0.15)
-    );
-
-}
+    map.setMinZoom(localMinZoom);
+    map.setView(duljoCenter, Math.max(17, localMinZoom));
+}, 150);
 
 
 // ==========================================
@@ -618,10 +623,10 @@ document.getElementById(
 // LAST UPDATED
 // ==========================================
 
-document.getElementById(
-    "lastUpdated"
-).textContent =
-    new Date().toLocaleTimeString();
+const lastUpdated = document.getElementById("lastUpdated");
+if (lastUpdated) {
+    lastUpdated.textContent = new Date().toLocaleTimeString();
+}
     
 </script>
 
