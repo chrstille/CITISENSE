@@ -401,6 +401,53 @@ foreach ($historyRows as $row) {
     $historyByReport[$reportID][] = $row;
 }
 
+/* =========================================================
+   RESIDENT MESSAGES (report_messages)
+
+   Two-way conversation between residents and the barangay.
+   Skipped quietly if the table does not exist yet.
+========================================================= */
+
+$messagesByReport = [];
+
+$messagesTable = $conn->query("SHOW TABLES LIKE 'report_messages'");
+
+if (
+    $messagesTable &&
+    $messagesTable->num_rows > 0 &&
+    !empty($allReports)
+) {
+    $messageReportIDs = array_values(array_unique(array_map(
+        fn($r) => (string) $r["reportID"],
+        $allReports
+    )));
+
+    $placeholders = implode(
+        ",",
+        array_fill(0, count($messageReportIDs), "?")
+    );
+
+    $stmt = $conn->prepare(
+        "SELECT reportID, senderType, message, created_at
+         FROM report_messages
+         WHERE reportID IN ($placeholders)
+         ORDER BY created_at ASC, id ASC"
+    );
+
+    $stmt->bind_param(
+        str_repeat("s", count($messageReportIDs)),
+        ...$messageReportIDs
+    );
+
+    $stmt->execute();
+
+    foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+        $messagesByReport[$row["reportID"]][] = $row;
+    }
+
+    $stmt->close();
+}
+
 
 /* =========================================================
    SELECT PENDING REPORTS FOR REGULAR REPORT VIEW
@@ -1158,11 +1205,111 @@ function rvRenderCard(
 
                 </div>
 
+                <!-- ==========================================
+                     MESSAGES WITH RESIDENTS
+                     Original report always; duplicates only
+                     when their resident has written.
+                ========================================== -->
+
+                <div class="manage-edit-panel">
+
+                    <h3>
+                        <i class="bi bi-chat-dots"></i>
+                        Messages with Residents
+                    </h3>
+
+                    <?php
+                    $conversationReports = array_merge(
+                        [$original],
+                        $cycle["duplicates"]
+                    );
+                    ?>
+
+                    <?php foreach ($conversationReports as $convReport): ?>
+
+                        <?php
+                        $convID = (string) $convReport["reportID"];
+                        $convMessages = $messagesByReport[$convID] ?? [];
+
+                        if ($convID !== $originalID && !$convMessages) {
+                            continue;
+                        }
+                        ?>
+
+                        <div class="rv-thread">
+
+                            <small class="rv-thread-label">
+                                Report <?= rvEscape($convID) ?>
+                                <?= $convID === $originalID ? "(Original)" : "(Duplicate)" ?>
+                            </small>
+
+                            <?php if (!$convMessages): ?>
+
+                                <p class="manage-empty">
+                                    No messages yet. You can send the
+                                    resident an update.
+                                </p>
+
+                            <?php endif; ?>
+
+                            <?php foreach ($convMessages as $msg): ?>
+
+                                <?php $fromBarangay = $msg["senderType"] === "barangay"; ?>
+
+                                <div class="rv-msg <?= $fromBarangay ? "rv-msg-barangay" : "rv-msg-resident" ?>">
+                                    <span class="rv-msg-sender">
+                                        <?= $fromBarangay ? "Barangay" : "Resident" ?>
+                                    </span>
+                                    <span class="rv-msg-text"><?= nl2br(rvEscape($msg["message"])) ?></span>
+                                    <span class="rv-msg-time">
+                                        <?= rvEscape(rvDate($msg["created_at"], "M j, Y g:i A")) ?>
+                                    </span>
+                                </div>
+
+                            <?php endforeach; ?>
+
+                            <form
+                                class="manage-reply-form"
+                                data-report-id="<?= rvEscape($convID) ?>"
+                                data-original-id="<?= rvEscape($originalID) ?>"
+                            >
+                                <textarea
+                                    name="message"
+                                    maxlength="500"
+                                    rows="2"
+                                    required
+                                    placeholder="Reply to the resident..."
+                                ></textarea>
+
+                                <button type="submit" class="manage-save-button">
+                                    Send Reply
+                                </button>
+                            </form>
+
+                        </div>
+
+                    <?php endforeach; ?>
+
+                </div>
+
             </section>
 
         <?php endforeach; ?>
 
     <?php endforeach; ?>
+
+    <style>
+        .rv-thread { border-top: 1px solid #ECF0F6; padding-top: 12px; margin-top: 12px; }
+        .rv-thread:first-of-type { border-top: 0; margin-top: 4px; }
+        .rv-thread-label { display: block; color: #596887; font-weight: 700; margin-bottom: 8px; }
+        .rv-msg { display: flex; flex-direction: column; max-width: 85%; padding: 9px 12px; border-radius: 14px; margin-bottom: 8px; font-size: 14px; line-height: 1.45; }
+        .rv-msg-resident { background: #F3F6FB; border: 1px solid #E2E8F0; color: #0F2350; }
+        .rv-msg-barangay { background: #2563EB; color: #fff; margin-left: auto; }
+        .rv-msg-sender { font-size: 11px; font-weight: 700; opacity: .8; margin-bottom: 2px; }
+        .rv-msg-time { font-size: 11px; opacity: .7; margin-top: 4px; }
+        .manage-reply-form { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+        .manage-reply-form textarea { width: 100%; box-sizing: border-box; border: 1px solid #D6DFEC; border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
+    </style>
 
         <!-- ==================================================
          ACTUAL STATUS HISTORY DATA

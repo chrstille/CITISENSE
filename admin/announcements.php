@@ -109,6 +109,84 @@ if (
     $stmt->close();
 
 
+    // ------------------------------------------------------
+    // PUSH NOTIFICATION TO ALL RESIDENTS OF THIS BARANGAY
+    // Uses the existing api/send_push_notification.php.
+    // A push failure never blocks creating the announcement.
+    // ------------------------------------------------------
+
+    try {
+        // The push sender lives in the Flutter API folder (htdocs/citisense/api).
+        $pushSenderFile = rtrim((string) $_SERVER["DOCUMENT_ROOT"], "/\\") .
+            "/citisense/api/send_push_notification.php";
+
+        if (!is_file($pushSenderFile)) {
+            throw new RuntimeException(
+                "Push sender not found at " . $pushSenderFile
+            );
+        }
+
+        require_once $pushSenderFile;
+
+        // Called through a variable because the function is defined in the
+        // other project folder (this also keeps VS Code from flagging it).
+        $sendPush = "sendPushNotification";
+
+        if (!function_exists($sendPush)) {
+            throw new RuntimeException("sendPushNotification() is not available.");
+        }
+
+        $tokenStmt = $conn->prepare("
+            SELECT t.fcmToken
+            FROM user_device_tokens t
+            INNER JOIN users u
+                -- The two tables use different collations; compare
+                -- them with the same one.
+                ON u.userID COLLATE utf8mb4_general_ci =
+                   t.userID COLLATE utf8mb4_general_ci
+            WHERE u.barangayID = ?
+        ");
+
+        $tokenStmt->bind_param("s", $barangayID);
+        $tokenStmt->execute();
+
+        $tokens = $tokenStmt->get_result();
+        $pushAccepted = 0;
+
+        while ($row = $tokens->fetch_assoc()) {
+
+            $token = trim((string) $row["fcmToken"]);
+
+            if ($token === "") {
+                continue;
+            }
+
+            if ($sendPush(
+                $token,
+                "New announcement from Barangay " . $barangayName,
+                $title,
+                ["type" => "announcement"]
+            )) {
+                $pushAccepted++;
+            }
+        }
+
+        $tokenStmt->close();
+
+        error_log(
+            "CitiSense announcement push: " . $pushAccepted .
+            " notification(s) accepted by Firebase."
+        );
+
+    } catch (Throwable $pushError) {
+
+        error_log(
+            "CitiSense announcement saved, but push failed: " .
+            $pushError->getMessage()
+        );
+    }
+
+
     header("Location: announcements.php?success=created");
     exit;
 }

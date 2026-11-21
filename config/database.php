@@ -3,7 +3,7 @@
 $host = "localhost";
 $port = 3306;
 $username = "root";
-$password = "admin123"; 
+$password = ""; 
 $database = "citisense";
 
 $conn = new mysqli($host, $username, $password, $database, $port);

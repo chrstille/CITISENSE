@@ -164,7 +164,7 @@ function statusRecordChange(
     string $statusID,
     string $statusName,
     ?string $remarks
-): void {
+): string {
     $historyID = "H" . bin2hex(random_bytes(16));
     $dateChanged = date("Y-m-d H:i:s");
 
@@ -212,6 +212,96 @@ function statusRecordChange(
 
     $stmt->execute();
     $stmt->close();
+
+    // Returned so the same text can be sent as a push notification.
+    return $message;
+}
+
+/*
+|--------------------------------------------------------------------------
+| PUSH NOTIFICATIONS
+|--------------------------------------------------------------------------
+| Uses the existing api/send_push_notification.php to send each resident's
+| status update to every phone registered for them (user_device_tokens).
+| Runs after the database commit, so a push failure never undoes or blocks
+| the status update.
+|--------------------------------------------------------------------------
+*/
+function statusSendPushes(mysqli $conn, array $pushTargets, string $statusID): int
+{
+    if (count($pushTargets) === 0) {
+        return 0;
+    }
+
+    $accepted = 0;
+
+    try {
+        // The push sender lives in the Flutter API folder (htdocs/citisense/api).
+        $pushSenderFile = rtrim((string) $_SERVER["DOCUMENT_ROOT"], "/\\") .
+            "/citisense/api/send_push_notification.php";
+
+        if (!is_file($pushSenderFile)) {
+            throw new RuntimeException(
+                "Push sender not found at " . $pushSenderFile
+            );
+        }
+
+        require_once $pushSenderFile;
+
+        // Called through a variable because the function is defined in the
+        // other project folder (this also keeps VS Code from flagging it).
+        $sendPush = "sendPushNotification";
+
+        if (!function_exists($sendPush)) {
+            throw new RuntimeException("sendPushNotification() is not available.");
+        }
+
+        $tokenStmt = $conn->prepare(
+            "SELECT fcmToken FROM user_device_tokens WHERE userID = ?"
+        );
+
+        foreach ($pushTargets as $target) {
+            $residentID = (string) $target["userID"];
+
+            $tokenStmt->bind_param("s", $residentID);
+            $tokenStmt->execute();
+            $tokens = $tokenStmt->get_result();
+
+            while ($row = $tokens->fetch_assoc()) {
+                $token = trim((string) $row["fcmToken"]);
+
+                if ($token === "") {
+                    continue;
+                }
+
+                if ($sendPush(
+                    $token,
+                    "Report Status Updated",
+                    (string) $target["message"],
+                    [
+                        "type" => "report_status",
+                        "reportID" => (string) $target["reportID"],
+                        "statusID" => $statusID
+                    ]
+                )) {
+                    $accepted++;
+                }
+            }
+        }
+
+        $tokenStmt->close();
+    } catch (Throwable $pushError) {
+        error_log(
+            "CitiSense status saved, but push failed: " .
+            $pushError->getMessage()
+        );
+    }
+
+    error_log(
+        "CitiSense status push: " . $accepted . " notification(s) accepted by Firebase."
+    );
+
+    return $accepted;
 }
 
 /*
@@ -474,6 +564,7 @@ try {
     |--------------------------------------------------------------------------
     */
     $updatedReportIDs = [];
+    $pushTargets = [];
     $remarksValue = $remarks === "" ? null : $remarks;
 
     $updateStmt = $conn->prepare(
@@ -507,7 +598,7 @@ try {
             );
         }
 
-        statusRecordChange(
+        $notificationMessage = statusRecordChange(
             $conn,
             $affectedReportID,
             $residentID,
@@ -518,6 +609,11 @@ try {
         );
 
         $updatedReportIDs[] = $affectedReportID;
+        $pushTargets[] = [
+            "userID" => $residentID,
+            "reportID" => $affectedReportID,
+            "message" => $notificationMessage
+        ];
     }
 
     $updateStmt->close();
@@ -530,8 +626,12 @@ try {
     $conn->commit();
     $transactionStarted = false;
 
+    // Notify each resident's phone (after the changes are saved).
+    $pushAccepted = statusSendPushes($conn, $pushTargets, $statusID);
+
     statusJsonResponse(200, [
         "success" => true,
+        "pushAccepted" => $pushAccepted,
         "changed" => count($updatedReportIDs) > 0,
         "message" => $statusID === "STAT003"
             ? "The Original Report and its duplicates have been resolved."

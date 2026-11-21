@@ -2089,6 +2089,72 @@ document.addEventListener("submit", async function (event) {
 });
 
 /* =========================================================
+   REPLY TO A RESIDENT (report conversation)
+   Saves the reply and sends the resident a push notification.
+========================================================= */
+
+document.addEventListener("submit", async function (event) {
+    const target = event.target;
+
+    if (!(target instanceof Element)) return;
+
+    const form = target.closest(".manage-reply-form");
+
+    if (!form) return;
+
+    event.preventDefault();
+
+    const reportID = form.dataset.reportId;
+    const originalID = form.dataset.originalId || reportID;
+    const textarea = form.querySelector('textarea[name="message"]');
+    const message = (textarea?.value || "").trim();
+
+    if (message === "") return;
+
+    const button = form.querySelector('button[type="submit"]');
+
+    if (button) button.disabled = true;
+
+    try {
+        const body = new FormData();
+        body.append("reportID", reportID);
+        body.append("message", message);
+
+        const response = await fetch("/citisense/api/admin_reply_report_message.php", {
+            method: "POST",
+            body: body
+        });
+
+        let data;
+
+        try {
+            data = await response.json();
+        } catch {
+            throw new Error(
+                "The server returned an invalid response while sending the reply."
+            );
+        }
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Unable to send the reply.");
+        }
+
+        await refreshManageOriginal(originalID);
+
+        showReportToast("Reply sent to the resident.");
+
+    } catch (error) {
+        showReportToast(
+            error.message || "Unable to send the reply.",
+            true
+        );
+
+    } finally {
+        if (button) button.disabled = false;
+    }
+});
+
+/* =========================================================
    EXPORT MODAL
 ========================================================= */
 
