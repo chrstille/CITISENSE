@@ -665,7 +665,7 @@ $stmt->close();
 
     <link rel="stylesheet" href="../css/dashboard.css">
     <link rel="stylesheet" href="../css/reports.css?v=2">
-    <link rel="stylesheet" href="../css/reportView.css?v=2">
+    <link rel="stylesheet" href="../css/reportView.css?v=4">
 <?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
@@ -957,6 +957,46 @@ $activeFilterCount = count(array_filter([
     </div>
 </div>
 
+<!-- DECLINE REPORT MODAL -->
+<div id="declineReportModal" class="export-modal-overlay decline-modal-overlay" hidden>
+    <div class="export-modal" role="dialog" aria-modal="true" aria-labelledby="declineModalTitle">
+
+        <div class="export-modal-header">
+            <span class="export-modal-icon decline-modal-icon"><i class="bi bi-x-octagon"></i></span>
+            <div>
+                <h2 id="declineModalTitle">Decline report</h2>
+                <p id="declineModalSubtitle">Tell the resident why this report was not accepted.</p>
+            </div>
+            <button type="button" id="closeDeclineModal" class="modal-close" aria-label="Close">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <form id="declineReportForm" novalidate>
+            <div class="rv-field">
+                <label for="declineReason">Reason <span>(sent to the resident)</span></label>
+                <textarea
+                    id="declineReason"
+                    rows="4"
+                    minlength="5"
+                    maxlength="1000"
+                    placeholder="e.g. The photo does not show the reported issue. Please submit a clearer photo of the location."
+                    required
+                ></textarea>
+                <small class="decline-error" id="declineError" hidden>Please write a reason (at least 5 characters).</small>
+            </div>
+
+            <div class="decline-modal-actions">
+                <button type="button" class="btn btn-light" id="cancelDeclineModal">Cancel</button>
+                <button type="submit" class="btn decline-submit" id="confirmDecline">
+                    <i class="bi bi-send"></i>
+                    Decline
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- REPORT DRAWER -->
 <div class="report-drawer-overlay" id="reportDrawerOverlay"></div>
 
@@ -1071,6 +1111,12 @@ function closeReportDrawer() {
     reportDrawerOverlay.classList.remove("open");
     reportDrawer.setAttribute("aria-hidden", "true");
     document.body.classList.remove("drawer-open");
+
+    /* Accepted/declined reports change the counts on this page */
+    if (reportsChanged) {
+        window.location.reload();
+        return;
+    }
 
     if (lastDrawerTrigger && lastDrawerTrigger.isConnected) {
         lastDrawerTrigger.focus({ preventScroll: true });
@@ -1449,8 +1495,153 @@ function openReadOnlyReport(card) {
         }
     }
 
+    setupDetailReview(root, data);
+
     showReportScreen(detailScreen, "forward");
 }
+
+/* =========================================================
+   ACCEPT / DECLINE PENDING REPORTS
+   Accept  -> In Progress (its Original and Pending duplicates follow)
+   Decline -> Declined, with a reason that is sent to the resident
+========================================================= */
+
+const declineReportModal = document.getElementById("declineReportModal");
+const declineReportForm = document.getElementById("declineReportForm");
+const declineReason = document.getElementById("declineReason");
+const declineError = document.getElementById("declineError");
+const declineSubtitle = document.getElementById("declineModalSubtitle");
+const confirmDeclineButton = document.getElementById("confirmDecline");
+
+let declineReportID = "";
+let reportsChanged = false;
+
+function setupDetailReview(root, data) {
+    const panel = root.querySelector("#detailReviewPanel");
+    if (!panel) return;
+
+    const isPending = data.statusId === "STAT001";
+    panel.hidden = !isPending;
+
+    panel.querySelectorAll("[data-review-action]").forEach(button => {
+        button.dataset.reviewReport = data.reportId;
+        setButtonBusy(button, false);
+    });
+}
+
+async function sendReportReview(reportID, action, reason = "") {
+    const response = await fetch("review_report.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportID: reportID, action: action, reason: reason })
+    });
+
+    let data;
+
+    try {
+        data = await response.json();
+    } catch {
+        throw new Error("The server returned an invalid response.");
+    }
+
+    if (!response.ok || !data.success) {
+        throw new Error(data.message || "Unable to review the report.");
+    }
+
+    return data;
+}
+
+async function afterReview(message) {
+    reportsChanged = true;
+
+    const loaded = await loadReportDrawer(currentCategoryID, currentLocationID, true);
+
+    if (!loaded) {
+        showReportToast(message + " Reopen the list to see the latest data.", true);
+        return;
+    }
+
+    showGroupScreen();
+    showReportToast(message);
+}
+
+async function acceptReport(button) {
+    const reportID = button.dataset.reviewReport;
+    if (!reportID) return;
+
+    setButtonBusy(button, true, "Accepting…");
+
+    try {
+        const data = await sendReportReview(reportID, "accept");
+        await afterReview(data.message || "Report accepted.");
+    } catch (error) {
+        showReportToast(error.message || "Unable to accept the report.", true);
+        setButtonBusy(button, false);
+    }
+}
+
+function openDeclineModal(reportID) {
+    if (!declineReportModal || !reportID) return;
+
+    declineReportID = reportID;
+    declineReason.value = "";
+    declineError.hidden = true;
+    declineSubtitle.textContent = "Report #" + reportID + ". Tell the resident why it was not accepted.";
+    setButtonBusy(confirmDeclineButton, false);
+
+    openModal(declineReportModal);
+    setTimeout(() => declineReason.focus(), 60);
+}
+
+document.getElementById("closeDeclineModal")?.addEventListener("click", () => closeModal(declineReportModal));
+document.getElementById("cancelDeclineModal")?.addEventListener("click", () => closeModal(declineReportModal));
+
+declineReportModal?.addEventListener("click", function (event) {
+    if (event.target === declineReportModal) closeModal(declineReportModal);
+});
+
+declineReason?.addEventListener("input", function () {
+    if (declineReason.value.trim().length >= 5) declineError.hidden = true;
+});
+
+declineReportForm?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    const reason = declineReason.value.trim();
+
+    if (reason.length < 5) {
+        declineError.hidden = false;
+        declineReason.focus();
+        return;
+    }
+
+    setButtonBusy(confirmDeclineButton, true, "Declining…");
+
+    try {
+        const data = await sendReportReview(declineReportID, "decline", reason);
+        closeModal(declineReportModal);
+        await afterReview(data.message || "Report declined.");
+    } catch (error) {
+        showReportToast(error.message || "Unable to decline the report.", true);
+        setButtonBusy(confirmDeclineButton, false);
+    }
+});
+
+document.addEventListener("click", function (event) {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const button = target.closest("[data-review-action]");
+    if (!button || button.disabled) return;
+
+    event.preventDefault();
+
+    if (button.dataset.reviewAction === "accept") {
+        acceptReport(button);
+    } else {
+        openDeclineModal(button.dataset.reviewReport);
+    }
+});
 
 /* =========================================================
    DRAWER CLICK HANDLERS
@@ -1517,8 +1708,8 @@ document.addEventListener("click", function (event) {
         return;
     }
 
-    /* Don't treat clicks on links/inputs inside a card as card clicks */
-    if (target.closest("a, input, select, textarea, summary")) return;
+    /* Don't treat clicks on links/inputs/buttons inside a card as card clicks */
+    if (target.closest("a, input, select, textarea, summary, [data-review-action]")) return;
 
     const card = target.closest(".duplicate-report-card");
     if (card) handleCardActivation(card);
@@ -1530,7 +1721,9 @@ document.addEventListener("click", function (event) {
 
 document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") {
-        if (!generateReportModal.hidden || !exportModal.hidden) {
+        if (declineReportModal && !declineReportModal.hidden) {
+            closeModal(declineReportModal);
+        } else if (!generateReportModal.hidden || !exportModal.hidden) {
             closeModal(generateReportModal);
             closeModal(exportModal);
         } else if (reportDrawer.classList.contains("open")) {
@@ -1741,7 +1934,11 @@ function closeModal(modal) {
         modal.hidden = true;
         modal.classList.remove("is-closing");
 
-        if (generateReportModal.hidden && exportModal.hidden) {
+        if (
+            generateReportModal.hidden &&
+            exportModal.hidden &&
+            (!declineReportModal || declineReportModal.hidden)
+        ) {
             document.body.classList.remove("modal-open");
         }
     }, 180);

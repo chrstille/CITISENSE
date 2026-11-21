@@ -297,6 +297,7 @@ textarea:focus {
 .pill-in-progress { background: var(--progress-soft); color: var(--progress); }
 .pill-resolved { background: var(--resolved-soft); color: var(--resolved); }
 .pill-overdue { background: var(--overdue-soft); color: var(--overdue); }
+.pill-declined { background: #f1f3f7; color: #5b6478; }
 
 /* ---------- Footer ---------- */
 

@@ -214,6 +214,11 @@ $reportBuckets = [];
 
 foreach ($allReports as $report) {
 
+    /* Declined reports are closed and never part of a reporting cycle */
+    if (strtolower(trim((string) $report["statusName"])) === "declined") {
+        continue;
+    }
+
     $key =
         $report["categoryID"] . "\0" .
         $report["locationID"];
@@ -687,6 +692,28 @@ function rvRenderCard(array $report, string $variant = "list"): void
                 </div>
             <?php endif; ?>
 
+            <?php if ($variant === "list" && $report["statusID"] === "STAT001"): ?>
+                <div class="rv-review-actions">
+                    <button
+                        type="button"
+                        class="rv-review-btn rv-review-accept"
+                        data-review-action="accept"
+                        data-review-report="<?= rvEscape($reportID) ?>"
+                    >
+                        <i class="bi bi-check-lg"></i> Accept
+                    </button>
+
+                    <button
+                        type="button"
+                        class="rv-review-btn rv-review-decline"
+                        data-review-action="decline"
+                        data-review-report="<?= rvEscape($reportID) ?>"
+                    >
+                        <i class="bi bi-x-lg"></i> Decline
+                    </button>
+                </div>
+            <?php endif; ?>
+
         </div>
 
         <?php if (!$isStatic): ?>
@@ -745,7 +772,7 @@ $activeCaseCount = count($cyclesByCategory[$categoryID] ?? []);
             <p>
                 <strong><?= count($selectedReports) ?></strong>
                 new report<?= count($selectedReports) === 1 ? "" : "s" ?> waiting for review.
-                Open <b>Manage Reports</b> to update a status.
+                Accepted reports move to <b>In Progress</b>.
             </p>
 
             <button
@@ -1289,6 +1316,22 @@ $activeCaseCount = count($cyclesByCategory[$categoryID] ?? []);
                         <span><i class="bi bi-telephone"></i> <span id="detailContact"></span></span>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Accept / decline (Pending reports only) -->
+        <div class="rv-panel rv-review-panel" id="detailReviewPanel" hidden>
+            <h3><i class="bi bi-clipboard-check"></i> Review this report</h3>
+            <p class="rv-review-note">Accepting moves it to <b>In Progress</b>. Declining asks you for a reason that is sent to the resident.</p>
+
+            <div class="rv-review-actions">
+                <button type="button" class="rv-review-btn rv-review-accept" data-review-action="accept" id="detailAccept">
+                    <i class="bi bi-check-lg"></i> Accept
+                </button>
+
+                <button type="button" class="rv-review-btn rv-review-decline" data-review-action="decline" id="detailDecline">
+                    <i class="bi bi-x-lg"></i> Decline
+                </button>
             </div>
         </div>
 

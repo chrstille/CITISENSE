@@ -47,6 +47,11 @@ function statusLoadCycles(
          WHERE barangayID = ?
            AND categoryID = ?
            AND locationID = ?
+           AND statusID NOT IN (
+               SELECT statusID
+               FROM stats
+               WHERE LOWER(TRIM(statusName)) = 'declined'
+           )
          ORDER BY dateReported ASC, reportID ASC
          FOR UPDATE"
     );

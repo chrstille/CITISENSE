@@ -360,7 +360,7 @@ $jsonDetails = json_encode(
     <title><?= boardEscape($pageTitle) ?> overview · CitiSense</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="../css/dashboard.css">
-    <link rel="stylesheet" href="../css/reportStatusOverview.css?v=2">
+    <link rel="stylesheet" href="../css/reportStatusOverview.css?v=3">
     <script src="../js/reportStatusOverview.js?v=4" defer></script>
 <?php include __DIR__ . "/partial/head.php"; ?>
 </head>
@@ -386,10 +386,6 @@ $jsonDetails = json_encode(
                 </div>
             </div>
 
-            <label class="ov-search">
-                <i class="bi bi-search"></i>
-                <input type="search" id="ovSearch" placeholder="Search by ID, location or resident" aria-label="Search reports">
-            </label>
         </header>
 
         <!-- STATUS TABS -->

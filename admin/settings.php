@@ -423,7 +423,7 @@ $dateJoined = !empty($admin["dateJoined"])
 
     <link rel="stylesheet" href="../css/dashboard.css">
 
-    <link rel="stylesheet" href="../css/settings.css">
+    <link rel="stylesheet" href="../css/settings.css?v=2">
 <?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
@@ -455,7 +455,7 @@ $dateJoined = !empty($admin["dateJoined"])
             <?php endif; ?>
 
             <!-- PROFILE PICTURE -->
-            <section class="settings-card">
+            <section class="settings-card settings-profile-card">
 
                 <div class="settings-profile">
                     <div class="settings-avatar-wrapper">
@@ -481,8 +481,10 @@ $dateJoined = !empty($admin["dateJoined"])
                     </div>
 
                     <div class="settings-profile-details">
-                        <h3><?= e($fullName) ?></h3>
-                        <p>System Administrator</p>
+                        <div>
+                            <h3><?= e($fullName) ?></h3>
+                            <p>System Administrator</p>
+                        </div>
 
                         <form
                             id="pictureForm"
@@ -523,9 +525,12 @@ $dateJoined = !empty($admin["dateJoined"])
                 </div>
             </section>
 
+            <div class="settings-columns">
+
             <!-- ADMIN INFORMATION -->
             <section class="settings-card">
                 <div class="settings-card-header">
+                    <span class="settings-card-icon"><i class="bi bi-person-vcard"></i></span>
                     <h2>Admin Information</h2>
                 </div>
 
@@ -595,6 +600,7 @@ $dateJoined = !empty($admin["dateJoined"])
             <!-- CHANGE PASSWORD -->
             <section class="settings-card">
                 <div class="settings-card-header">
+                    <span class="settings-card-icon"><i class="bi bi-shield-lock"></i></span>
                     <h2>Change Password</h2>
                 </div>
 
@@ -679,6 +685,8 @@ $dateJoined = !empty($admin["dateJoined"])
                     </div>
                 </form>
             </section>
+
+            </div>
 
         </div>
     </main>
