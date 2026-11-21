@@ -744,6 +744,7 @@ $categoryChartJSON =
         href="../css/analytics.css"
     >
 
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 

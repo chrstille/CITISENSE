@@ -302,6 +302,7 @@ $stmt->close();
         href="../css/users.css"
     >
 
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 

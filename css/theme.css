@@ -1,0 +1,326 @@
+/* =========================================================
+   CITISENSE GLOBAL THEME
+   Loaded last on every admin page (see admin/partial/head.php)
+========================================================= */
+
+:root {
+    --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    --primary: #1d6ff2;
+    --primary-hover: #155fd6;
+    --primary-soft: #eaf2ff;
+
+    --ink: #0f1b3d;
+    --text: #33415c;
+    --muted: #7a879e;
+    --border: #e8edf5;
+    --surface: #ffffff;
+    --bg: #f5f7fb;
+
+    --pending: #f08c00;
+    --pending-soft: #fff4e5;
+    --progress: #1d6ff2;
+    --progress-soft: #eaf2ff;
+    --resolved: #16a34a;
+    --resolved-soft: #e8f7ee;
+    --overdue: #e03131;
+    --overdue-soft: #fdecec;
+
+    --radius-sm: 8px;
+    --radius: 14px;
+    --radius-lg: 20px;
+
+    --shadow-sm: 0 1px 2px rgba(15, 27, 61, 0.05);
+    --shadow: 0 1px 2px rgba(15, 27, 61, 0.04), 0 8px 24px rgba(15, 27, 61, 0.06);
+    --shadow-lg: 0 24px 64px rgba(15, 27, 61, 0.18);
+
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --sidebar-width: 252px;
+}
+
+/* ---------- Font everywhere (icons keep their own font) ---------- */
+
+html body,
+html body * {
+    font-family: var(--font) !important;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+    color: var(--ink);
+    letter-spacing: -0.02em;
+}
+
+::selection {
+    background: rgba(29, 111, 242, 0.18);
+}
+
+/* ---------- Layout ---------- */
+
+body .main-content {
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+    min-height: 100vh;
+    padding: 32px 40px 28px;
+    background: var(--bg);
+}
+
+@media (max-width: 992px) {
+    body .main-content {
+        margin-left: 0;
+        width: 100%;
+        padding: 22px 18px 24px;
+    }
+}
+
+/* ---------- Smooth page transitions ---------- */
+
+/* Cross-page fade in browsers that support it (Chrome/Edge 126+) */
+@view-transition {
+    navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 0.22s;
+    animation-timing-function: ease;
+}
+
+/* Sidebar stays still while the page content fades */
+.sidebar {
+    view-transition-name: sidebar;
+}
+
+/* Fallback entrance for every browser */
+@keyframes csFadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes csFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+body .main-content > * {
+    animation: csFadeUp 0.45s var(--ease) both;
+}
+
+body .main-content > *:nth-child(2) { animation-delay: 0.04s; }
+body .main-content > *:nth-child(3) { animation-delay: 0.08s; }
+body .main-content > *:nth-child(4) { animation-delay: 0.12s; }
+body .main-content > *:nth-child(5) { animation-delay: 0.16s; }
+body .main-content > *:nth-child(n+6) { animation-delay: 0.2s; }
+
+/* ---------- Generic interactive polish ---------- */
+
+a,
+button,
+input,
+select,
+textarea {
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.2s ease,
+        opacity 0.2s ease;
+}
+
+button {
+    cursor: pointer;
+}
+
+:focus-visible {
+    outline: 3px solid rgba(29, 111, 242, 0.35);
+    outline-offset: 2px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 4px rgba(29, 111, 242, 0.12);
+}
+
+/* Thin, quiet scrollbars */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #cfd7e4 transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: #cfd7e4;
+    border-radius: 8px;
+}
+
+/* ---------- Shared buttons ---------- */
+
+.btn {
+    height: 42px;
+    padding: 0 18px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    border: 1px solid transparent;
+    border-radius: 11px;
+
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.btn i {
+    font-size: 16px;
+}
+
+.btn-primary {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(29, 111, 242, 0.24);
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+.btn-light {
+    background: #ffffff;
+    border-color: var(--border);
+    color: var(--text);
+}
+
+.btn-light:hover {
+    border-color: #cfd8e6;
+    color: var(--ink);
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ---------- Page header (shared) ---------- */
+
+.page-header {
+    position: relative;
+    z-index: 30;            /* keeps dropdowns above the animated cards below */
+
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+
+    margin-bottom: 24px;
+}
+
+.page-header h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+}
+
+.page-header p {
+    margin: 0;
+    font-size: 14.5px;
+    color: var(--muted);
+}
+
+.page-header p strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ---------- Status pills (shared) ---------- */
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    height: 26px;
+    padding: 0 10px;
+
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.pill::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.pill-pending { background: var(--pending-soft); color: #c26a00; }
+.pill-in-progress { background: var(--progress-soft); color: var(--progress); }
+.pill-resolved { background: var(--resolved-soft); color: var(--resolved); }
+.pill-overdue { background: var(--overdue-soft); color: var(--overdue); }
+.pill-declined { background: #f1f3f7; color: #5b6478; }
+
+/* ---------- Footer ---------- */
+
+.admin-footer {
+    color: var(--muted);
+}
+
+.admin-footer strong {
+    color: var(--primary);
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    @view-transition {
+        navigation: none;
+    }
+}

@@ -464,6 +464,7 @@ $stmt->close();
         href="../css/announcements.css"
     >
 
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 
@@ -542,26 +543,6 @@ $stmt->close();
 
 
             <!-- SEARCH -->
-
-            <form
-                method="GET"
-                action="announcements.php"
-                class="announcement-search"
-            >
-
-                <i class="bi bi-search"></i>
-
-                <input
-                    type="text"
-                    name="search"
-                    placeholder="Search announcements..."
-                    value="<?php
-                        echo htmlspecialchars($search);
-                    ?>"
-                >
-
-            </form>
-
 
             <!-- NEW ANNOUNCEMENT -->
 

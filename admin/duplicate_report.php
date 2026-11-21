@@ -228,6 +228,7 @@ if ($totalSubmissions > 0) {
         href="../css/duplicate-reports.css"
     >
 
+<?php include __DIR__ . "/partial/head.php"; ?>
 </head>
 
 
